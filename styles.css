@@ -378,6 +378,17 @@ h1 {
   padding: 0 12px;
 }
 
+.catalog__fallback {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted);
+  font: 400 15px/1.7 var(--mono);
+}
+
+.catalog__fallback a {
+  border-bottom: 1px solid var(--line);
+}
+
 .craft {
   display: grid;
   grid-template-columns: minmax(0, 0.8fr) minmax(260px, 0.55fr);
@@ -437,6 +448,58 @@ h1 {
   font: 400 15px/1.5 var(--mono);
 }
 
+.order-form label {
+  display: grid;
+  gap: 8px;
+  color: var(--ink);
+  font: 400 12px/1.4 var(--mono);
+  text-transform: uppercase;
+}
+
+.order-form input,
+.order-form textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.24);
+  color: var(--ink);
+  font: 400 15px/1.5 var(--mono);
+}
+
+.order-form input {
+  min-height: 44px;
+  padding: 0 12px;
+}
+
+.order-form textarea {
+  resize: vertical;
+  min-height: 104px;
+  padding: 11px 12px;
+}
+
+.order-form input[name="company"] {
+  position: absolute;
+  left: -100vw;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.order-form__status {
+  min-height: 22px;
+  margin: 0;
+  color: var(--muted);
+  font: 400 13px/1.5 var(--mono);
+}
+
+.order-form__status[data-type="success"] {
+  color: #276238;
+}
+
+.order-form__status[data-type="error"] {
+  color: #8f1f1f;
+}
+
 .order-form__submit {
   display: inline-flex;
   align-items: center;
@@ -449,6 +512,19 @@ h1 {
   font: 700 13px/1 var(--mono);
   text-align: center;
   text-decoration: none;
+  text-transform: uppercase;
+}
+
+.order-form__submit:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.order-form__creator {
+  width: fit-content;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  font: 400 13px/1.5 var(--mono);
   text-transform: uppercase;
 }
 

@@ -1,0 +1,13 @@
+services:
+  ragpack-bot:
+    build: .
+    env_file:
+      - backend/.env
+    ports:
+      - "8080:8080"
+    volumes:
+      - ragpack-data:/data
+    restart: unless-stopped
+
+volumes:
+  ragpack-data:
