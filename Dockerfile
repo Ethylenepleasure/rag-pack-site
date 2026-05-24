@@ -11,6 +11,8 @@ RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 
 COPY backend /app/backend
 COPY catalog.json /app/catalog.json
+COPY index.html profile.html admin.html /app/
+COPY script.js profile.js admin.js styles.css /app/
 COPY assets /app/assets
 
 RUN adduser --disabled-password --gecos "" appuser \

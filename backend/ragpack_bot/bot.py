@@ -1,10 +1,21 @@
 from __future__ import annotations
 
+import secrets
+
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import CallbackQuery, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from aiogram.types import (
+    CallbackQuery,
+    FSInputFile,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    Message,
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
+)
 
 from .catalog import Catalog, Product
 from .config import Config
@@ -61,6 +72,18 @@ def _product_line(product: Product) -> str:
     return f"{product.name} / {product.price}"
 
 
+def _login_contact_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="Поделиться телефоном", request_contact=True)]],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+    )
+
+
+def _login_code() -> str:
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
 async def _send_main_menu(message: Message, config: Config) -> None:
     caption = "RĄG PACK//\n\nВыберите раздел:"
     image_path = config.catalog_path.parent / "assets/menu-cover.jpg"
@@ -106,6 +129,14 @@ def create_dispatcher(config: Config, catalog: Catalog, storage: OrderStorage) -
         await state.clear()
         parts = (message.text or "").split(maxsplit=1)
         slug = parts[1].strip() if len(parts) > 1 else ""
+
+        if slug == "login":
+            await message.answer(
+                "Для входа на сайт поделитесь номером через кнопку ниже. После этого я пришлю одноразовый код.",
+                reply_markup=_login_contact_keyboard(),
+            )
+            return
+
         product = catalog.get(slug) if slug else None
 
         if product is not None:
@@ -181,6 +212,8 @@ def create_dispatcher(config: Config, catalog: Catalog, storage: OrderStorage) -
             await message.answer("Товар не найден. Начните заново через /start.")
             return
 
+        telegram_user_id = message.from_user.id if message.from_user else None
+        user = storage.get_user_by_telegram_id(telegram_user_id) if telegram_user_id else None
         order = storage.create_order(
             source="telegram",
             product_slug=product.slug,
@@ -189,11 +222,40 @@ def create_dispatcher(config: Config, catalog: Catalog, storage: OrderStorage) -
             customer_name=str(data["customer_name"]),
             delivery_address=delivery_address,
             telegram_contact=_telegram_contact(message),
+            user_id=user.id if user else None,
         )
         await notify_admins(bot, config, order)
         await state.clear()
         await message.answer(
             "Спасибо за заказ! Наш менеджер скоро напишет вам по поводу оплаты."
+        )
+
+    @router.message(F.contact)
+    async def create_site_login_code(message: Message) -> None:
+        contact = message.contact
+        sender = message.from_user
+
+        if contact is None or sender is None:
+            await message.answer("Не получилось прочитать контакт. Попробуйте еще раз через /start login.")
+            return
+
+        if contact.user_id is not None and contact.user_id != sender.id:
+            await message.answer("Для входа нужен ваш собственный контакт из Telegram.")
+            return
+
+        user = storage.upsert_user(
+            telegram_user_id=sender.id,
+            telegram_username=sender.username or "",
+            phone=contact.phone_number or "",
+            first_name=sender.first_name or "",
+            last_name=sender.last_name or "",
+            is_admin=sender.id in config.admin_ids,
+        )
+        code = _login_code()
+        storage.create_login_code(user.id, code, ttl_minutes=10)
+        await message.answer(
+            f"Код для входа на сайт: {code}\n\nОн действует 10 минут. Вернитесь на страницу профиля и введите код.",
+            reply_markup=ReplyKeyboardRemove(),
         )
 
     @router.callback_query(F.data.startswith("status:"))

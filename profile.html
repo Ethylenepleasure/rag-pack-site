@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Профиль / RĄG PACK//</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="logo" href="/" aria-label="RĄG PACK// Genuine Leather">
+        <span class="logo__mark">R</span>
+        <span>RĄG PACK//</span>
+        <small>profile</small>
+      </a>
+      <nav class="nav" aria-label="Основная навигация">
+        <a href="/#catalog">Каталог</a>
+        <a href="/profile">Профиль</a>
+        <a href="/admin">Админка</a>
+      </nav>
+    </header>
+
+    <main class="workspace" data-page="profile">
+      <section class="workspace__hero" aria-labelledby="profile-title">
+        <p class="section-label">client access / telegram code</p>
+        <h1 id="profile-title">profile</h1>
+      </section>
+
+      <section class="auth-panel" id="auth-panel" aria-labelledby="auth-title">
+        <div>
+          <p class="section-label">Вход</p>
+          <h2 id="auth-title">Код из Telegram</h2>
+          <p>
+            Перейдите в бота, нажмите кнопку “Поделиться телефоном”, получите код и вернитесь сюда.
+          </p>
+        </div>
+        <form class="auth-form" id="auth-form">
+          <a class="order-form__submit" id="bot-link" href="https://t.me/ragpackleather" target="_blank" rel="noopener noreferrer">
+            Перейти в бота
+          </a>
+          <label>
+            Код подтверждения
+            <input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required />
+          </label>
+          <button class="order-form__submit" type="submit">Войти</button>
+          <p class="order-form__status" id="auth-status" aria-live="polite"></p>
+        </form>
+      </section>
+
+      <section class="profile-view" id="profile-view" hidden>
+        <div class="toolbar">
+          <div>
+            <p class="section-label">Аккаунт</p>
+            <h2 id="profile-name">Профиль клиента</h2>
+          </div>
+          <button class="text-button" id="logout-button" type="button">Выйти</button>
+        </div>
+
+        <dl class="profile-facts" id="profile-facts"></dl>
+
+        <div class="section-heading section-heading--compact">
+          <p class="section-label">order history</p>
+          <h2>Заказы</h2>
+        </div>
+        <div class="table-list" id="orders-list"></div>
+      </section>
+    </main>
+
+    <script src="profile.js"></script>
+  </body>
+</html>

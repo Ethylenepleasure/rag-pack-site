@@ -8,6 +8,7 @@ from pathlib import Path
 @dataclass(frozen=True)
 class Config:
     bot_token: str
+    bot_url: str
     admin_ids: tuple[int, ...]
     database_path: Path
     catalog_path: Path
@@ -18,6 +19,7 @@ class Config:
     rate_limit_requests: int
     rate_limit_window_seconds: int
     notification_queue_size: int
+    secure_cookies: bool
 
 
 def _parse_admin_ids(value: str) -> tuple[int, ...]:
@@ -41,8 +43,18 @@ def _parse_origins(value: str) -> tuple[str, ...]:
     return origins
 
 
+def _parse_bool(value: str, default: bool) -> bool:
+    clean = value.strip().lower()
+
+    if not clean:
+        return default
+
+    return clean in {"1", "true", "yes", "on"}
+
+
 def load_config() -> Config:
     bot_token = os.getenv("BOT_TOKEN", "").strip()
+    bot_url = os.getenv("BOT_URL", "https://t.me/ragpackleather").strip()
     admin_ids = _parse_admin_ids(os.getenv("ADMIN_IDS", ""))
 
     if not bot_token:
@@ -53,6 +65,7 @@ def load_config() -> Config:
 
     return Config(
         bot_token=bot_token,
+        bot_url=bot_url,
         admin_ids=admin_ids,
         database_path=Path(os.getenv("DATABASE_PATH", "/data/orders.sqlite3")),
         catalog_path=Path(os.getenv("CATALOG_PATH", "/app/catalog.json")),
@@ -63,4 +76,5 @@ def load_config() -> Config:
         rate_limit_requests=int(os.getenv("RATE_LIMIT_REQUESTS", "10")),
         rate_limit_window_seconds=int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60")),
         notification_queue_size=int(os.getenv("NOTIFICATION_QUEUE_SIZE", "100")),
+        secure_cookies=_parse_bool(os.getenv("SECURE_COOKIES", ""), True),
     )
