@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import logging
 from html import escape
 
 from aiogram import Bot
+from aiogram.exceptions import TelegramAPIError
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from .config import Config
 from .storage import Order, STATUSES
+
+
+logger = logging.getLogger(__name__)
 
 
 def format_order(order: Order) -> str:
@@ -41,8 +46,11 @@ def status_keyboard(order_id: int) -> InlineKeyboardMarkup:
 
 async def notify_admins(bot: Bot, config: Config, order: Order) -> None:
     for admin_id in config.admin_ids:
-        await bot.send_message(
-            chat_id=admin_id,
-            text=format_order(order),
-            reply_markup=status_keyboard(order.id),
-        )
+        try:
+            await bot.send_message(
+                chat_id=admin_id,
+                text=format_order(order),
+                reply_markup=status_keyboard(order.id),
+            )
+        except TelegramAPIError:
+            logger.exception("Failed to notify admin %s about order %s", admin_id, order.id)
