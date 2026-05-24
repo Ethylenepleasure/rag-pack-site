@@ -8,6 +8,7 @@ from pathlib import Path
 @dataclass(frozen=True)
 class Product:
     slug: str
+    category: str
     tag: str
     name: str
     description: str
@@ -30,3 +31,6 @@ class Catalog:
 
     def get(self, slug: str) -> Product | None:
         return self._by_slug.get(slug)
+
+    def by_category(self, category: str) -> list[Product]:
+        return [product for product in self.products if product.category == category]

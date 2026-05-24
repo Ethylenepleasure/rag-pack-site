@@ -11,6 +11,7 @@ RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 
 COPY backend /app/backend
 COPY catalog.json /app/catalog.json
+COPY assets /app/assets
 
 EXPOSE 8080
 

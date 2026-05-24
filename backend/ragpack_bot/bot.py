@@ -4,7 +4,7 @@ from aiogram import Bot, Dispatcher, F, Router
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from aiogram.types import CallbackQuery, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from .catalog import Catalog, Product
 from .config import Config
@@ -18,12 +18,31 @@ class OrderForm(StatesGroup):
     delivery_address = State()
 
 
-def _product_keyboard(catalog: Catalog) -> InlineKeyboardMarkup:
-    rows = [
-        [InlineKeyboardButton(text=f"{product.name} / {product.price}", callback_data=f"order:{product.slug}")]
-        for product in catalog.products
-    ]
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+CATEGORIES = {
+    "bags": "Сумки",
+    "accessories": "Аксессуары",
+    "cases": "Чехлы",
+}
+
+
+def _main_menu_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Сумки", callback_data="category:bags")],
+            [InlineKeyboardButton(text="Аксессуары", callback_data="category:accessories")],
+            [InlineKeyboardButton(text="Чехлы", callback_data="category:cases")],
+            [InlineKeyboardButton(text="Телега креатора", url="https://t.me/ragpackleather")],
+        ]
+    )
+
+
+def _product_keyboard(product: Product) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=f"Выбрать {product.name}", callback_data=f"order:{product.slug}")],
+            [InlineKeyboardButton(text="Назад в меню", callback_data="menu")],
+        ]
+    )
 
 
 def _telegram_contact(message: Message) -> str:
@@ -40,6 +59,28 @@ def _telegram_contact(message: Message) -> str:
 
 def _product_line(product: Product) -> str:
     return f"{product.name} / {product.price}"
+
+
+async def _send_product_card(message: Message, config: Config, product: Product) -> None:
+    caption = "\n".join(
+        (
+            f"{product.name} / {product.price}",
+            product.tag,
+            "",
+            product.description,
+        )
+    )
+    image_path = config.catalog_path.parent / product.image
+
+    if image_path.exists():
+        await message.answer_photo(
+            FSInputFile(image_path),
+            caption=caption,
+            reply_markup=_product_keyboard(product),
+        )
+        return
+
+    await message.answer(caption, reply_markup=_product_keyboard(product))
 
 
 def create_dispatcher(config: Config, catalog: Catalog, storage: OrderStorage) -> Dispatcher:
@@ -59,9 +100,32 @@ def create_dispatcher(config: Config, catalog: Catalog, storage: OrderStorage) -
             return
 
         await message.answer(
-            "Выберите товар для заказа:",
-            reply_markup=_product_keyboard(catalog),
+            "RĄG PACK//\n\nВыберите раздел:",
+            reply_markup=_main_menu_keyboard(),
         )
+
+    @router.callback_query(F.data == "menu")
+    async def show_menu(callback: CallbackQuery, state: FSMContext) -> None:
+        await state.clear()
+        await callback.message.answer("RĄG PACK//\n\nВыберите раздел:", reply_markup=_main_menu_keyboard())
+        await callback.answer()
+
+    @router.callback_query(F.data.startswith("category:"))
+    async def show_category(callback: CallbackQuery) -> None:
+        category = callback.data.split(":", 1)[1] if callback.data else ""
+        products = catalog.by_category(category)
+
+        if not products:
+            await callback.answer("Раздел пуст", show_alert=True)
+            return
+
+        title = CATEGORIES.get(category, "Раздел")
+        await callback.message.answer(f"{title}:")
+
+        for product in products:
+            await _send_product_card(callback.message, config, product)
+
+        await callback.answer()
 
     @router.callback_query(F.data.startswith("order:"))
     async def pick_product(callback: CallbackQuery, state: FSMContext) -> None:

@@ -11,6 +11,7 @@ let selectedProductData = null;
 const fallbackProducts = [
   {
     slug: "bigbulya",
+    category: "bags",
     tag: "Дорожная сумка",
     name: "Бигбуля",
     description: "Объемная черная кожа, латунная фурнитура, тяжелый силуэт.",
@@ -20,6 +21,7 @@ const fallbackProducts = [
   },
   {
     slug: "pitch",
+    category: "accessories",
     tag: "Галстук",
     name: "PITCH",
     description: "Рельефная фактура, вытянутый силуэт, акцент для сумки или образа.",
@@ -29,6 +31,7 @@ const fallbackProducts = [
   },
   {
     slug: "void-carrier",
+    category: "bags",
     tag: "Сумка",
     name: "Void Carrier",
     description: "Компактная форма, острые края отделки и мягкий плечевой ремень.",
@@ -38,6 +41,7 @@ const fallbackProducts = [
   },
   {
     slug: "larva",
+    category: "bags",
     tag: "Сумка",
     name: "Larva",
     description: "Полумесяц из гладкой кожи с декоративными боковыми наплывами.",
@@ -47,6 +51,7 @@ const fallbackProducts = [
   },
   {
     slug: "macbook-15-case",
+    category: "cases",
     tag: "Комплект",
     name: "MacBook 15 Case",
     description: "Плоский клатч с мрачной пластичной отделкой и перчаткой.",
@@ -56,6 +61,7 @@ const fallbackProducts = [
   },
   {
     slug: "pod-shell",
+    category: "cases",
     tag: "Чехол Air Pods",
     name: "POD SHELL",
     description: "Строгая геометрия, пепельные мазки и драматичный нижний край.",

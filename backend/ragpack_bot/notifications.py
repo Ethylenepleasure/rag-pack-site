@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from html import escape
+from zoneinfo import ZoneInfo
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramAPIError
@@ -14,8 +16,18 @@ from .storage import Order, STATUSES
 logger = logging.getLogger(__name__)
 
 
+def _format_moscow_time(value: str) -> str:
+    try:
+        created_at = datetime.fromisoformat(value)
+    except ValueError:
+        return value
+
+    return created_at.astimezone(ZoneInfo("Europe/Moscow")).strftime("%d.%m.%Y %H:%M МСК")
+
+
 def format_order(order: Order) -> str:
     status = STATUSES.get(order.status, order.status)
+    created_at = _format_moscow_time(order.created_at)
 
     return "\n".join(
         (
@@ -30,7 +42,7 @@ def format_order(order: Order) -> str:
             f"Адрес доставки: {escape(order.delivery_address)}",
             f"Telegram: {escape(order.telegram_contact)}",
             "",
-            f"Создана: {escape(order.created_at)}",
+            f"Создана: {escape(created_at)}",
         )
     )
 
