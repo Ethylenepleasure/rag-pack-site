@@ -61,6 +61,21 @@ def _product_line(product: Product) -> str:
     return f"{product.name} / {product.price}"
 
 
+async def _send_main_menu(message: Message, config: Config) -> None:
+    caption = "RĄG PACK//\n\nВыберите раздел:"
+    image_path = config.catalog_path.parent / "assets/menu-cover.jpg"
+
+    if image_path.exists():
+        await message.answer_photo(
+            FSInputFile(image_path),
+            caption=caption,
+            reply_markup=_main_menu_keyboard(),
+        )
+        return
+
+    await message.answer(caption, reply_markup=_main_menu_keyboard())
+
+
 async def _send_product_card(message: Message, config: Config, product: Product) -> None:
     caption = "\n".join(
         (
@@ -99,15 +114,12 @@ def create_dispatcher(config: Config, catalog: Catalog, storage: OrderStorage) -
             await message.answer(f"Оформляем заказ: {_product_line(product)}\n\nКак вас зовут?")
             return
 
-        await message.answer(
-            "RĄG PACK//\n\nВыберите раздел:",
-            reply_markup=_main_menu_keyboard(),
-        )
+        await _send_main_menu(message, config)
 
     @router.callback_query(F.data == "menu")
     async def show_menu(callback: CallbackQuery, state: FSMContext) -> None:
         await state.clear()
-        await callback.message.answer("RĄG PACK//\n\nВыберите раздел:", reply_markup=_main_menu_keyboard())
+        await _send_main_menu(callback.message, config)
         await callback.answer()
 
     @router.callback_query(F.data.startswith("category:"))
