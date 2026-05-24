@@ -8,6 +8,63 @@ const apiUrl = document.querySelector('meta[name="ragpack-api-url"]')?.content |
 
 let selectedProductData = null;
 
+const fallbackProducts = [
+  {
+    slug: "bigbulya",
+    tag: "Дорожная сумка",
+    name: "Бигбуля",
+    description: "Объемная черная кожа, латунная фурнитура, тяжелый силуэт.",
+    price: "22 900 ₽",
+    image: "assets/product-2.jpg",
+    alt: "Большая черная кожаная сумка с металлической фурнитурой",
+  },
+  {
+    slug: "pitch",
+    tag: "Галстук",
+    name: "PITCH",
+    description: "Рельефная фактура, вытянутый силуэт, акцент для сумки или образа.",
+    price: "4 500 ₽",
+    image: "assets/knockout-2.jpg",
+    alt: "Черный фактурный аксессуар на воротнике",
+  },
+  {
+    slug: "void-carrier",
+    tag: "Сумка",
+    name: "Void Carrier",
+    description: "Компактная форма, острые края отделки и мягкий плечевой ремень.",
+    price: "12 600 ₽",
+    image: "assets/product-4.jpg",
+    alt: "Маленькая черная кожаная сумка с длинным ремнем",
+  },
+  {
+    slug: "larva",
+    tag: "Сумка",
+    name: "Larva",
+    description: "Полумесяц из гладкой кожи с декоративными боковыми наплывами.",
+    price: "14 200 ₽",
+    image: "assets/product-5.jpg",
+    alt: "Черная полукруглая кожаная сумка на ремне",
+  },
+  {
+    slug: "macbook-15-case",
+    tag: "Комплект",
+    name: "MacBook 15 Case",
+    description: "Плоский клатч с мрачной пластичной отделкой и перчаткой.",
+    price: "16 800 ₽",
+    image: "assets/macbook-15-case-new.jpg",
+    alt: "Черный кожаный чехол MacBook 15 Case и перчатка",
+  },
+  {
+    slug: "pod-shell",
+    tag: "Чехол Air Pods",
+    name: "POD SHELL",
+    description: "Строгая геометрия, пепельные мазки и драматичный нижний край.",
+    price: "1 800 ₽",
+    image: "assets/IMG_4168.heic.png",
+    alt: "POD SHELL в прозрачной емкости",
+  },
+];
+
 const escapeHtml = (value) =>
   String(value).replace(/[&<>"']/g, (char) => {
     const entities = {
@@ -63,6 +120,8 @@ const createProductCard = (product) => {
 };
 
 const loadCatalog = async () => {
+  let products = fallbackProducts;
+
   try {
     const response = await fetch("catalog.json", { cache: "no-store" });
 
@@ -70,16 +129,12 @@ const loadCatalog = async () => {
       throw new Error("catalog request failed");
     }
 
-    const products = await response.json();
-    productGrid.replaceChildren(...products.map(createProductCard));
+    products = await response.json();
   } catch (error) {
-    productGrid.innerHTML = `
-      <p class="catalog__fallback">
-        Каталог временно не загрузился. Напишите креэйтору в Telegram:
-        <a href="https://t.me/ragpackleather">https://t.me/ragpackleather</a>
-      </p>
-    `;
+    console.warn("Using embedded catalog fallback.", error);
   }
+
+  productGrid.replaceChildren(...products.map(createProductCard));
 };
 
 closeButton.addEventListener("click", () => {
