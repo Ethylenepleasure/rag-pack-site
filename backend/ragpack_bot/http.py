@@ -121,7 +121,11 @@ def _current_user(request: web.Request) -> User | None:
     return storage.get_user_by_session(_hash_token(token))
 
 
-def _user_payload(user: User) -> dict[str, object]:
+def _is_admin(config: Config, user: User) -> bool:
+    return user.telegram_user_id in config.admin_ids
+
+
+def _user_payload(config: Config, user: User) -> dict[str, object]:
     return {
         "id": user.id,
         "telegram_user_id": user.telegram_user_id,
@@ -129,7 +133,7 @@ def _user_payload(user: User) -> dict[str, object]:
         "phone": user.phone,
         "first_name": user.first_name,
         "last_name": user.last_name,
-        "is_admin": user.is_admin,
+        "is_admin": _is_admin(config, user),
         "created_at": user.created_at,
         "updated_at": user.updated_at,
     }
@@ -232,10 +236,8 @@ def create_app(config: Config, bot: Bot, catalog: Catalog, storage: OrderStorage
 
     async def static_page(request: web.Request) -> web.FileResponse:
         page = "index.html"
-        if request.path in {"/profile", "/profile.html"}:
+        if request.path in {"/profile", "/profile.html", "/admin", "/admin.html"}:
             page = "profile.html"
-        elif request.path in {"/admin", "/admin.html"}:
-            page = "admin.html"
 
         return web.FileResponse(request.app["static_root"] / page)
 
@@ -282,7 +284,7 @@ def create_app(config: Config, bot: Bot, catalog: Catalog, storage: OrderStorage
         token = secrets.token_urlsafe(32)
         storage.create_session(user_id=user.id, token_hash=_hash_token(token), ttl_days=30)
         response = web.json_response(
-            {"ok": True, "user": _user_payload(user)},
+            {"ok": True, "user": _user_payload(config, user)},
             headers=_cors_headers(config, request),
         )
         response.set_cookie(
@@ -313,7 +315,7 @@ def create_app(config: Config, bot: Bot, catalog: Catalog, storage: OrderStorage
         orders = storage.list_orders(user_id=user.id)
         return web.json_response(
             {
-                "user": _user_payload(user),
+                "user": _user_payload(config, user),
                 "orders": [_order_payload(order) for order in orders],
                 "statuses": STATUSES,
             },
@@ -322,7 +324,7 @@ def create_app(config: Config, bot: Bot, catalog: Catalog, storage: OrderStorage
 
     async def admin_orders(request: web.Request) -> web.Response:
         user = _current_user(request)
-        if user is None or not user.is_admin:
+        if user is None or not _is_admin(config, user):
             return _auth_error(config, request, admin=user is not None)
 
         status = request.query.get("status", "").strip()
@@ -344,7 +346,7 @@ def create_app(config: Config, bot: Bot, catalog: Catalog, storage: OrderStorage
 
     async def update_admin_order(request: web.Request) -> web.Response:
         user = _current_user(request)
-        if user is None or not user.is_admin:
+        if user is None or not _is_admin(config, user):
             return _auth_error(config, request, admin=user is not None)
 
         payload = await _json_payload(request)
@@ -379,7 +381,7 @@ def create_app(config: Config, bot: Bot, catalog: Catalog, storage: OrderStorage
 
     async def admin_customers(request: web.Request) -> web.Response:
         user = _current_user(request)
-        if user is None or not user.is_admin:
+        if user is None or not _is_admin(config, user):
             return _auth_error(config, request, admin=user is not None)
 
         customers = []
@@ -388,7 +390,7 @@ def create_app(config: Config, bot: Bot, catalog: Catalog, storage: OrderStorage
             orders = storage.list_orders(user_id=customer.id)
             customers.append(
                 {
-                    "user": _user_payload(customer),
+                    "user": _user_payload(config, customer),
                     "note": note.note if note else "",
                     "orders_count": len(orders),
                     "last_order": _order_payload(orders[0]) if orders else None,
@@ -399,7 +401,7 @@ def create_app(config: Config, bot: Bot, catalog: Catalog, storage: OrderStorage
 
     async def update_customer_note(request: web.Request) -> web.Response:
         user = _current_user(request)
-        if user is None or not user.is_admin:
+        if user is None or not _is_admin(config, user):
             return _auth_error(config, request, admin=user is not None)
 
         payload = await _json_payload(request)

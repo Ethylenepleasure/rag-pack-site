@@ -3,77 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Админка / RĄG PACK//</title>
+    <meta http-equiv="refresh" content="0; url=https://api.ragpack.ru/profile" />
+    <title>Переход в профиль / RĄG PACK//</title>
+    <link rel="canonical" href="https://api.ragpack.ru/profile" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <header class="site-header">
-      <a class="logo" href="/" aria-label="RĄG PACK// Genuine Leather">
-        <span class="logo__mark">R</span>
-        <span>RĄG PACK//</span>
-        <small>admin</small>
-      </a>
-      <nav class="nav" aria-label="Основная навигация">
-        <a href="/profile">Профиль</a>
-        <a href="/#catalog">Каталог</a>
-        <a href="/admin">Админка</a>
-      </nav>
-    </header>
-
-    <main class="workspace" data-page="admin">
-      <section class="workspace__hero" aria-labelledby="admin-title">
-        <p class="section-label">crm / orders / clients</p>
-        <h1 id="admin-title">admin</h1>
-      </section>
-
-      <section class="auth-panel" id="admin-auth-panel" aria-labelledby="admin-auth-title">
-        <div>
-          <p class="section-label">Доступ</p>
-          <h2 id="admin-auth-title">Вход через Telegram</h2>
-        </div>
-        <form class="auth-form" id="admin-auth-form">
-          <a class="order-form__submit" id="admin-bot-link" href="https://t.me/rag_pack_bot?start=login" target="_blank" rel="noopener noreferrer">
-            Получить код в боте
-          </a>
-          <label>
-            Код подтверждения
-            <input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required />
-          </label>
-          <button class="order-form__submit" type="submit">Войти</button>
-          <p class="order-form__status" id="admin-auth-status" aria-live="polite"></p>
-        </form>
-      </section>
-
-      <section class="admin-view" id="admin-view" hidden>
-        <div class="toolbar">
-          <div>
-            <p class="section-label">CRM</p>
-            <h2>Заказы и клиенты</h2>
-          </div>
-          <button class="text-button" id="admin-logout-button" type="button">Выйти</button>
-        </div>
-
-        <div class="admin-layout">
-          <section class="admin-pane" aria-labelledby="orders-title">
-            <div class="pane-heading">
-              <h3 id="orders-title">Заказы</h3>
-              <select id="status-filter" aria-label="Фильтр статуса">
-                <option value="">Все статусы</option>
-              </select>
-            </div>
-            <div class="table-list" id="admin-orders-list"></div>
-          </section>
-
-          <section class="admin-pane" aria-labelledby="customers-title">
-            <div class="pane-heading">
-              <h3 id="customers-title">Клиенты</h3>
-            </div>
-            <div class="table-list" id="customers-list"></div>
-          </section>
-        </div>
+    <main class="workspace">
+      <section class="workspace__hero" aria-labelledby="redirect-title">
+        <p class="section-label">admin moved</p>
+        <h1 id="redirect-title">profile</h1>
+        <p>
+          Админка теперь открывается внутри общего профиля после входа через Telegram.
+        </p>
+        <a class="order-form__submit" href="https://api.ragpack.ru/profile">Открыть профиль</a>
       </section>
     </main>
-
-    <script src="admin.js"></script>
   </body>
 </html>

@@ -16,7 +16,6 @@
       <nav class="nav" aria-label="Основная навигация">
         <a href="/profile">Профиль</a>
         <a href="/#catalog">Каталог</a>
-        <a href="/admin">Админка</a>
       </nav>
     </header>
 
@@ -63,6 +62,34 @@
           <h2>Заказы</h2>
         </div>
         <div class="table-list" id="orders-list"></div>
+
+        <div class="admin-view" id="admin-view" hidden>
+          <div class="toolbar toolbar--nested">
+            <div>
+              <p class="section-label">admin access</p>
+              <h2>CRM</h2>
+            </div>
+          </div>
+
+          <div class="admin-layout">
+            <section class="admin-pane" aria-labelledby="admin-orders-title">
+              <div class="pane-heading">
+                <h3 id="admin-orders-title">Все заказы</h3>
+                <select id="status-filter" aria-label="Фильтр статуса">
+                  <option value="">Все статусы</option>
+                </select>
+              </div>
+              <div class="table-list" id="admin-orders-list"></div>
+            </section>
+
+            <section class="admin-pane" aria-labelledby="customers-title">
+              <div class="pane-heading">
+                <h3 id="customers-title">Клиенты</h3>
+              </div>
+              <div class="table-list" id="customers-list"></div>
+            </section>
+          </div>
+        </div>
       </section>
     </main>
 
