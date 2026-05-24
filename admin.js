@@ -7,6 +7,7 @@ const adminLogoutButton = document.querySelector("#admin-logout-button");
 const ordersList = document.querySelector("#admin-orders-list");
 const customersList = document.querySelector("#customers-list");
 const statusFilter = document.querySelector("#status-filter");
+const fallbackBotLoginUrl = "https://t.me/rag_pack_bot?start=login";
 
 let statuses = {};
 
@@ -147,11 +148,13 @@ const loadAdmin = async ({ silent = true } = {}) => {
 };
 
 const loadBotLink = async () => {
+  adminBotLink.href = fallbackBotLoginUrl;
+
   try {
     const payload = await api("/api/auth/start", { method: "POST" });
-    adminBotLink.href = payload.login_url;
+    adminBotLink.href = payload.login_url || fallbackBotLoginUrl;
   } catch (error) {
-    setAdminAuthStatus("Не удалось получить ссылку на бота. Попробуйте обновить страницу.", "error");
+    setAdminAuthStatus("");
   }
 };
 

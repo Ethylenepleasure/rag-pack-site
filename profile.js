@@ -7,6 +7,7 @@ const profileName = document.querySelector("#profile-name");
 const profileFacts = document.querySelector("#profile-facts");
 const ordersList = document.querySelector("#orders-list");
 const logoutButton = document.querySelector("#logout-button");
+const fallbackBotLoginUrl = "https://t.me/rag_pack_bot?start=login";
 
 const statusText = (statuses, status) => statuses?.[status] || status;
 
@@ -96,11 +97,13 @@ const loadProfile = async () => {
 };
 
 const loadBotLink = async () => {
+  botLink.href = fallbackBotLoginUrl;
+
   try {
     const payload = await api("/api/auth/start", { method: "POST" });
-    botLink.href = payload.login_url;
+    botLink.href = payload.login_url || fallbackBotLoginUrl;
   } catch (error) {
-    setAuthStatus("Не удалось получить ссылку на бота. Попробуйте обновить страницу.", "error");
+    setAuthStatus("");
   }
 };
 
