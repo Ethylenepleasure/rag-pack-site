@@ -4,14 +4,17 @@
 
 ## Frontend
 
-По умолчанию сайт отправляет заявки на тот же домен:
+Production-лендинг на GitHub Pages отправляет заявки на постоянный backend-домен:
+
+```html
+<meta name="ragpack-api-url" content="https://api.ragpack.ru/api/orders" />
+```
+
+Если сайт и backend живут на одном домене, можно вернуть относительный API:
 
 ```html
 <meta name="ragpack-api-url" content="/api/orders" />
 ```
-
-Если сайт опубликован отдельно от backend, замените значение на API-домен,
-например `https://api.your-domain.example/api/orders`.
 
 Токен бота нельзя добавлять в `index.html`, `script.js` или другие frontend-файлы.
 
@@ -25,8 +28,8 @@
 BOT_TOKEN=replace_with_new_botfather_token
 BOT_URL=https://t.me/ragpackleather_bot
 ADMIN_IDS=123456789,987654321
-CORS_ORIGINS=https://your-domain.example
-DOMAIN=your-domain.example
+CORS_ORIGINS=https://ragpack.ru,https://www.ragpack.ru,https://ethylenepleasure.github.io
+DOMAIN=api.ragpack.ru
 MAX_REQUEST_SIZE=8192
 RATE_LIMIT_REQUESTS=10
 RATE_LIMIT_WINDOW_SECONDS=60
@@ -34,7 +37,8 @@ NOTIFICATION_QUEUE_SIZE=100
 SECURE_COOKIES=true
 ```
 
-4. Направьте DNS `DOMAIN` на VPS. Caddy автоматически выпустит HTTPS-сертификат.
+4. В DNS домена добавьте `A`-запись `api.ragpack.ru` на IP VPS. Caddy
+   автоматически выпустит HTTPS-сертификат после обновления DNS.
 
 5. Запустите сервис на VPS:
 
@@ -45,6 +49,25 @@ docker compose up -d --build
 SQLite база хранится в Docker volume `ragpack-data`.
 Backend отдает `/`, `/profile`, `/admin`, ассеты и API. Наружу смотрит Caddy
 на 80/443 и проксирует запросы в контейнер приложения.
+
+## Production DNS
+
+Не используйте временный Cloudflare Quick Tunnel (`trycloudflare.com`) для
+production: адрес может поменяться после перезапуска.
+
+Production схема без Cloudflare Zero Trust:
+
+- `https://ragpack.ru` — GitHub Pages.
+- `https://api.ragpack.ru` — backend на VPS через Caddy.
+- DNS `A` для `api.ragpack.ru` указывает на IP VPS.
+- Caddy принимает 80/443 и проксирует backend `app:8080`.
+
+После обновления DNS:
+
+```bash
+docker compose up -d --build
+curl https://api.ragpack.ru/health
+```
 
 ## Профиль и админка
 
