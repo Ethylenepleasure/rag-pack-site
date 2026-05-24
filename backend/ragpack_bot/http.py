@@ -232,9 +232,9 @@ def create_app(config: Config, bot: Bot, catalog: Catalog, storage: OrderStorage
 
     async def static_page(request: web.Request) -> web.FileResponse:
         page = "index.html"
-        if request.path == "/profile":
+        if request.path in {"/profile", "/profile.html"}:
             page = "profile.html"
-        elif request.path == "/admin":
+        elif request.path in {"/admin", "/admin.html"}:
             page = "admin.html"
 
         return web.FileResponse(request.app["static_root"] / page)
@@ -492,8 +492,11 @@ def create_app(config: Config, bot: Bot, catalog: Catalog, storage: OrderStorage
         )
 
     app.router.add_get("/", static_page)
+    app.router.add_get("/index.html", static_page)
     app.router.add_get("/profile", static_page)
+    app.router.add_get("/profile.html", static_page)
     app.router.add_get("/admin", static_page)
+    app.router.add_get("/admin.html", static_page)
     app.router.add_static("/assets", app["static_root"] / "assets")
     app.router.add_get("/{filename:styles\\.css|script\\.js|profile\\.js|admin\\.js|catalog\\.json}", static_file)
     app.router.add_get("/health", health)
