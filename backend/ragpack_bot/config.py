@@ -14,6 +14,10 @@ class Config:
     host: str
     port: int
     cors_origins: tuple[str, ...]
+    max_request_size: int
+    rate_limit_requests: int
+    rate_limit_window_seconds: int
+    notification_queue_size: int
 
 
 def _parse_admin_ids(value: str) -> tuple[int, ...]:
@@ -30,7 +34,11 @@ def _parse_admin_ids(value: str) -> tuple[int, ...]:
 
 def _parse_origins(value: str) -> tuple[str, ...]:
     origins = tuple(origin.strip() for origin in value.split(",") if origin.strip())
-    return origins or ("*",)
+
+    if not origins:
+        raise RuntimeError("CORS_ORIGINS is required")
+
+    return origins
 
 
 def load_config() -> Config:
@@ -50,5 +58,9 @@ def load_config() -> Config:
         catalog_path=Path(os.getenv("CATALOG_PATH", "/app/catalog.json")),
         host=os.getenv("HOST", "0.0.0.0"),
         port=int(os.getenv("PORT", "8080")),
-        cors_origins=_parse_origins(os.getenv("CORS_ORIGINS", "*")),
+        cors_origins=_parse_origins(os.getenv("CORS_ORIGINS", "")),
+        max_request_size=int(os.getenv("MAX_REQUEST_SIZE", "8192")),
+        rate_limit_requests=int(os.getenv("RATE_LIMIT_REQUESTS", "10")),
+        rate_limit_window_seconds=int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60")),
+        notification_queue_size=int(os.getenv("NOTIFICATION_QUEUE_SIZE", "100")),
     )

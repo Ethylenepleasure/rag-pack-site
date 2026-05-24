@@ -13,6 +13,15 @@ COPY backend /app/backend
 COPY catalog.json /app/catalog.json
 COPY assets /app/assets
 
+RUN adduser --disabled-password --gecos "" appuser \
+    && mkdir -p /data \
+    && chown -R appuser:appuser /data /app
+
+USER appuser
+
 EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD python -c "import json, urllib.request; json.load(urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=2))"
 
 CMD ["python", "-m", "backend.main"]
