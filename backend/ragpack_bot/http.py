@@ -491,12 +491,9 @@ def create_app(config: Config, bot: Bot, catalog: Catalog, storage: OrderStorage
             headers=_cors_headers(config, request),
         )
 
-    app.router.add_get("/", static_page)
-    app.router.add_get("/index.html", static_page)
-    app.router.add_get("/profile", static_page)
-    app.router.add_get("/profile.html", static_page)
-    app.router.add_get("/admin", static_page)
-    app.router.add_get("/admin.html", static_page)
+    for page_path in ("/", "/index.html", "/profile", "/profile.html", "/admin", "/admin.html"):
+        app.router.add_get(page_path, static_page)
+        app.router.add_post(page_path, static_page)
     app.router.add_static("/assets", app["static_root"] / "assets")
     app.router.add_get("/{filename:styles\\.css|script\\.js|profile\\.js|admin\\.js|catalog\\.json}", static_file)
     app.router.add_get("/health", health)
