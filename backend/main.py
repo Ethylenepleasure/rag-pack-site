@@ -6,6 +6,7 @@ from aiohttp import web
 from aiogram import Bot
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
+from aiogram.types import BotCommand
 
 from ragpack_bot.bot import create_dispatcher
 from ragpack_bot.catalog import Catalog
@@ -35,6 +36,11 @@ async def main() -> None:
     bot = Bot(
         token=config.bot_token,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+    )
+    await bot.set_my_commands(
+        [
+            BotCommand(command="start", description="Меню"),
+        ]
     )
     dispatcher = create_dispatcher(config, catalog, storage)
     app = create_app(config, bot, catalog, storage)
