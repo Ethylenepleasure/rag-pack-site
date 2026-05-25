@@ -448,6 +448,14 @@ h1 {
   font: 400 15px/1.5 var(--mono);
 }
 
+.order-form__profile-contact {
+  margin: 0;
+  border: 1px solid var(--line-soft);
+  padding: 12px;
+  color: var(--muted);
+  font: 400 13px/1.5 var(--mono);
+}
+
 .order-form label {
   display: grid;
   gap: 8px;

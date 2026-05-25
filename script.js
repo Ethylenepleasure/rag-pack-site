@@ -4,9 +4,14 @@ const orderForm = document.querySelector("#order-form");
 const selectedProduct = document.querySelector("#selected-product");
 const orderStatus = document.querySelector("#order-status");
 const closeButton = document.querySelector(".order-form__close");
+const telegramContactField = document.querySelector("#telegram-contact-field");
+const telegramContactInput = orderForm.querySelector('[name="telegram_contact"]');
+const profileTelegramContact = document.querySelector("#profile-telegram-contact");
 const apiUrl = document.querySelector('meta[name="ragpack-api-url"]')?.content || "/api/orders";
+const profileApiUrl = new URL("/api/profile", new URL(apiUrl, window.location.href)).toString();
 
 let selectedProductData = null;
+let currentUser = null;
 
 const fallbackProducts = [
   {
@@ -89,11 +94,50 @@ const setStatus = (message, type = "") => {
   orderStatus.dataset.type = type;
 };
 
+const formatTelegramContact = (user) => {
+  if (!user) {
+    return "";
+  }
+
+  return user.telegram_username ? `@${user.telegram_username}` : String(user.telegram_user_id || "");
+};
+
+const applyProfileToOrderForm = () => {
+  const telegramContact = formatTelegramContact(currentUser);
+
+  telegramContactField.hidden = Boolean(telegramContact);
+  telegramContactInput.required = !telegramContact;
+  telegramContactInput.value = telegramContact;
+  profileTelegramContact.hidden = !telegramContact;
+  profileTelegramContact.textContent = telegramContact ? `Telegram: ${telegramContact}` : "";
+};
+
+const loadCurrentUser = async () => {
+  try {
+    const response = await fetch(profileApiUrl, {
+      credentials: "include",
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error("profile request failed");
+    }
+
+    const payload = await response.json();
+    currentUser = payload.user || null;
+  } catch (error) {
+    currentUser = null;
+  }
+
+  applyProfileToOrderForm();
+};
+
 const openOrderDialog = (product) => {
   selectedProductData = product;
   selectedProduct.textContent = `${product.name} / ${product.price}`;
   setStatus("");
   orderForm.reset();
+  applyProfileToOrderForm();
 
   if (typeof dialog.showModal === "function") {
     dialog.showModal();
@@ -167,7 +211,7 @@ orderForm.addEventListener("submit", async (event) => {
     product_slug: selectedProductData.slug,
     customer_name: formData.get("customer_name")?.trim(),
     delivery_address: formData.get("delivery_address")?.trim(),
-    telegram_contact: formData.get("telegram_contact")?.trim(),
+    telegram_contact: currentUser ? formatTelegramContact(currentUser) : formData.get("telegram_contact")?.trim(),
   };
 
   setStatus("Отправляем заявку...");
@@ -176,6 +220,7 @@ orderForm.addEventListener("submit", async (event) => {
   try {
     const response = await fetch(apiUrl, {
       method: "POST",
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
       },
@@ -197,4 +242,5 @@ orderForm.addEventListener("submit", async (event) => {
   }
 });
 
+loadCurrentUser();
 loadCatalog();

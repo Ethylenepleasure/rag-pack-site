@@ -18,7 +18,7 @@ from .notifications import notify_admins
 from .storage import Order, OrderStorage, STATUSES, User
 
 
-REQUIRED_FIELDS = ("product_slug", "customer_name", "delivery_address", "telegram_contact")
+REQUIRED_FIELDS = ("product_slug", "customer_name", "delivery_address")
 FIELD_LIMITS = {
     "product_slug": 80,
     "customer_name": 120,
@@ -93,6 +93,19 @@ def _trim_payload(payload: object) -> dict[str, str] | None:
     return result
 
 
+def _trim_field(payload: dict[str, object], field: str) -> str | None:
+    value = payload.get(field)
+
+    if not isinstance(value, str):
+        return None
+
+    value = value.strip()
+    if not value or len(value) > FIELD_LIMITS[field]:
+        return None
+
+    return value
+
+
 async def _json_payload(request: web.Request) -> object | None:
     if not request.content_type.startswith(JSON_CONTENT_TYPE):
         return None
@@ -137,6 +150,13 @@ def _user_payload(config: Config, user: User) -> dict[str, object]:
         "created_at": user.created_at,
         "updated_at": user.updated_at,
     }
+
+
+def _telegram_contact(user: User) -> str:
+    if user.telegram_username:
+        return f"@{user.telegram_username}"
+
+    return str(user.telegram_user_id)
 
 
 def _order_payload(order: Order) -> dict[str, object]:
@@ -471,6 +491,15 @@ def create_app(config: Config, bot: Bot, catalog: Catalog, storage: OrderStorage
             )
 
         user = _current_user(request)
+        telegram_contact = _telegram_contact(user) if user else _trim_field(payload, "telegram_contact")
+
+        if telegram_contact is None:
+            return web.json_response(
+                {"detail": "Invalid order fields"},
+                status=422,
+                headers=_cors_headers(config, request),
+            )
+
         order = storage.create_order(
             source="site",
             product_slug=product.slug,
@@ -478,7 +507,7 @@ def create_app(config: Config, bot: Bot, catalog: Catalog, storage: OrderStorage
             product_price=product.price,
             customer_name=clean_payload["customer_name"],
             delivery_address=clean_payload["delivery_address"],
-            telegram_contact=clean_payload["telegram_contact"],
+            telegram_contact=telegram_contact,
             user_id=user.id if user else None,
         )
 
