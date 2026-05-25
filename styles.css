@@ -40,6 +40,10 @@ img {
   width: 100%;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 .announcement {
   padding: 18px clamp(18px, 4vw, 56px) 0;
 }

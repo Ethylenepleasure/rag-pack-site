@@ -7,8 +7,12 @@ const closeButton = document.querySelector(".order-form__close");
 const telegramContactField = document.querySelector("#telegram-contact-field");
 const telegramContactInput = orderForm.querySelector('[name="telegram_contact"]');
 const profileTelegramContact = document.querySelector("#profile-telegram-contact");
+const profileLink = document.querySelector("#profile-link");
+const ordersLink = document.querySelector("#orders-link");
 const apiUrl = document.querySelector('meta[name="ragpack-api-url"]')?.content || "/api/orders";
-const profileApiUrl = new URL("/api/profile", new URL(apiUrl, window.location.href)).toString();
+const apiBaseUrl = new URL(apiUrl, window.location.href);
+const profileUrl = new URL("/profile", apiBaseUrl);
+const profileApiUrl = new URL("/api/profile", apiBaseUrl).toString();
 
 let selectedProductData = null;
 let currentUser = null;
@@ -112,6 +116,15 @@ const applyProfileToOrderForm = () => {
   profileTelegramContact.textContent = telegramContact ? `Telegram: ${telegramContact}` : "";
 };
 
+const applyProfileLinks = () => {
+  const profileHref = profileUrl.toString();
+  const ordersHref = new URL(profileUrl);
+  ordersHref.hash = currentUser ? "profile-orders" : "auth-panel";
+
+  profileLink.href = profileHref;
+  ordersLink.href = ordersHref.toString();
+};
+
 const loadCurrentUser = async () => {
   try {
     const response = await fetch(profileApiUrl, {
@@ -130,6 +143,7 @@ const loadCurrentUser = async () => {
   }
 
   applyProfileToOrderForm();
+  applyProfileLinks();
 };
 
 const openOrderDialog = (product) => {
@@ -242,5 +256,6 @@ orderForm.addEventListener("submit", async (event) => {
   }
 });
 
+applyProfileLinks();
 loadCurrentUser();
 loadCatalog();

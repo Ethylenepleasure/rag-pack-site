@@ -187,6 +187,10 @@ const renderProfile = async (payload) => {
   if (user.is_admin) {
     await loadAdmin();
   }
+
+  if (window.location.hash === "#profile-orders") {
+    document.querySelector("#profile-orders")?.scrollIntoView();
+  }
 };
 
 const loadProfile = async () => {
