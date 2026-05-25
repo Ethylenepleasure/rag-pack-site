@@ -20,6 +20,7 @@ class Order:
     id: int
     source: str
     user_id: int | None
+    telegram_user_id: int | None
     product_slug: str
     product_name: str
     product_price: str
@@ -91,6 +92,7 @@ class OrderStorage:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     source TEXT NOT NULL,
                     user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                    telegram_user_id INTEGER,
                     product_slug TEXT NOT NULL,
                     product_name TEXT NOT NULL,
                     product_price TEXT NOT NULL,
@@ -108,6 +110,8 @@ class OrderStorage:
             }
             if "user_id" not in columns:
                 connection.execute("ALTER TABLE orders ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL")
+            if "telegram_user_id" not in columns:
+                connection.execute("ALTER TABLE orders ADD COLUMN telegram_user_id INTEGER")
 
             connection.execute(
                 """
@@ -157,6 +161,7 @@ class OrderStorage:
                 """
             )
             connection.execute("CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id)")
+            connection.execute("CREATE INDEX IF NOT EXISTS idx_orders_telegram_user_id ON orders(telegram_user_id)")
             connection.execute("CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)")
             connection.execute("CREATE INDEX IF NOT EXISTS idx_login_codes_code ON login_codes(code)")
             connection.execute("CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions(token_hash)")
@@ -242,6 +247,20 @@ class OrderStorage:
             connection.executemany(
                 "UPDATE orders SET user_id = ? WHERE user_id IS NULL AND telegram_contact = ?",
                 [(user_id, contact) for contact in contact_variants],
+            )
+            connection.execute(
+                "UPDATE orders SET user_id = ? WHERE user_id IS NULL AND telegram_user_id = ?",
+                (user_id, telegram_user_id),
+            )
+            connection.execute(
+                """
+                UPDATE orders
+                SET user_id = ?
+                WHERE user_id IS NULL
+                  AND telegram_user_id IS NULL
+                  AND telegram_contact LIKE ?
+                """,
+                (user_id, f"% / {telegram_user_id}"),
             )
 
         return self.get_user(user_id)
@@ -444,6 +463,7 @@ class OrderStorage:
         customer_name: str,
         delivery_address: str,
         telegram_contact: str,
+        telegram_user_id: int | None = None,
         user_id: int | None = None,
     ) -> Order:
         created_at = datetime.now(UTC).isoformat(timespec="seconds")
@@ -454,6 +474,7 @@ class OrderStorage:
                 INSERT INTO orders (
                     source,
                     user_id,
+                    telegram_user_id,
                     product_slug,
                     product_name,
                     product_price,
@@ -463,11 +484,12 @@ class OrderStorage:
                     status,
                     created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     source,
                     user_id,
+                    telegram_user_id,
                     product_slug,
                     product_name,
                     product_price,

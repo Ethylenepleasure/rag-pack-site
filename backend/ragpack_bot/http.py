@@ -508,6 +508,7 @@ def create_app(config: Config, bot: Bot, catalog: Catalog, storage: OrderStorage
             customer_name=clean_payload["customer_name"],
             delivery_address=clean_payload["delivery_address"],
             telegram_contact=telegram_contact,
+            telegram_user_id=user.telegram_user_id if user else None,
             user_id=user.id if user else None,
         )
 

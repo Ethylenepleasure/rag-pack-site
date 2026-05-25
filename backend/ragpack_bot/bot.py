@@ -222,6 +222,7 @@ def create_dispatcher(config: Config, catalog: Catalog, storage: OrderStorage) -
             customer_name=str(data["customer_name"]),
             delivery_address=delivery_address,
             telegram_contact=_telegram_contact(message),
+            telegram_user_id=telegram_user_id,
             user_id=user.id if user else None,
         )
         await notify_admins(bot, config, order)
