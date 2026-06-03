@@ -258,6 +258,8 @@ def create_app(config: Config, bot: Bot, catalog: Catalog, storage: OrderStorage
         page = "index.html"
         if request.path in {"/profile", "/profile.html", "/admin", "/admin.html"}:
             page = "profile.html"
+        elif request.path == "/product.html" or request.path.startswith("/product/"):
+            page = "product.html"
 
         return web.FileResponse(request.app["static_root"] / page)
 
@@ -523,11 +525,15 @@ def create_app(config: Config, bot: Bot, catalog: Catalog, storage: OrderStorage
             headers=_cors_headers(config, request),
         )
 
-    for page_path in ("/", "/index.html", "/profile", "/profile.html", "/admin", "/admin.html"):
+    for page_path in ("/", "/index.html", "/profile", "/profile.html", "/admin", "/admin.html", "/product.html"):
         app.router.add_get(page_path, static_page)
         app.router.add_post(page_path, static_page)
     app.router.add_static("/assets", app["static_root"] / "assets")
-    app.router.add_get("/{filename:styles\\.css|script\\.js|profile\\.js|admin\\.js|catalog\\.json}", static_file)
+    app.router.add_get(
+        "/{filename:styles\\.css|shared\\.js|script\\.js|product\\.js|profile\\.js|admin\\.js|catalog\\.json}",
+        static_file,
+    )
+    app.router.add_get("/product/{slug}", static_page)
     app.router.add_get("/health", health)
     app.router.add_options("/{tail:.*}", options)
     app.router.add_post("/api/auth/start", start_auth)

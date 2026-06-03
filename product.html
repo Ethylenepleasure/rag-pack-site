@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Товар / RĄG PACK//</title>
+  <meta name="description" content="Карточка товара RĄG PACK// Genuine Leather" />
+  <meta name="ragpack-api-url" content="https://api.ragpack.ru/api/orders" />
+  <meta property="og:title" content="Товар / RĄG PACK//" />
+  <meta property="og:description" content="Карточка товара RĄG PACK// Genuine Leather" />
+  <meta property="og:image" content="/assets/rag-pack-logo.jpg" />
+  <meta property="og:url" content="https://api.ragpack.ru/product" />
+  <link rel="canonical" href="https://api.ragpack.ru/product" />
+  <link rel="stylesheet" href="/styles.css?v=product-pages-6" />
+</head>
+
+<body>
+  <div class="announcement" aria-label="Анонсы и скидки">
+    <div class="announcement__frame">
+      <div class="announcement__track">
+        <span>drop 001 / construction objects</span>
+        <span>Savant Collection</span>
+        <span>free delivery</span>
+        <span aria-hidden="true">drop 001 / construction objects</span>
+        <span aria-hidden="true">Savant Collection</span>
+        <span aria-hidden="true">free delivery</span>
+      </div>
+    </div>
+  </div>
+
+  <header class="site-header">
+    <nav class="nav" aria-label="Основная навигация">
+      <a href="/#catalog">Каталог</a>
+      <a href="/#craft">Кожа</a>
+      <a id="profile-link" href="https://api.ragpack.ru/profile">Профиль</a>
+      <a id="orders-link" href="https://api.ragpack.ru/profile#auth-panel">Заказы</a>
+    </nav>
+    <a class="logo" href="/" aria-label="RĄG PACK// Genuine Leather">
+      <span class="logo__mark">R</span>
+      <span>RĄG PACK//</span>
+      <small>product</small>
+    </a>
+  </header>
+
+  <main class="product-detail" id="product-detail" aria-live="polite">
+    <section class="product-detail__state">
+      <p class="section-label">object card</p>
+      <h1>loading</h1>
+    </section>
+  </main>
+
+  <dialog class="order-dialog" id="order">
+    <form class="order-form" id="order-form">
+      <button class="order-form__close" type="button" value="cancel" aria-label="Закрыть">×</button>
+      <p class="section-label">Заказ</p>
+      <h2>Написать креэйтору</h2>
+      <p class="order-form__product">
+        Товар: <span id="selected-product"></span>
+      </p>
+      <input type="text" name="company" tabindex="-1" autocomplete="off" aria-hidden="true" />
+      <label>
+        Имя
+        <input type="text" name="customer_name" autocomplete="name" required />
+      </label>
+      <label>
+        Адрес доставки
+        <textarea name="delivery_address" rows="4" required></textarea>
+      </label>
+      <label id="telegram-contact-field">
+        Telegram ID или username
+        <input type="text" name="telegram_contact" inputmode="text" placeholder="@username или ID" required />
+      </label>
+      <p class="order-form__profile-contact" id="profile-telegram-contact" hidden></p>
+      <p class="order-form__status" id="order-status" aria-live="polite"></p>
+      <button class="order-form__submit" type="submit">Отправить заявку</button>
+      <a class="order-form__creator" href="https://t.me/ragpackleather" target="_blank" rel="noopener noreferrer">
+        Телега креатора
+      </a>
+    </form>
+  </dialog>
+
+  <script src="/shared.js?v=product-pages-6"></script>
+  <script src="/product.js?v=product-pages-6"></script>
+</body>
+
+</html>
