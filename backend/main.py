@@ -9,7 +9,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.types import BotCommand
 
 from ragpack_bot.bot import create_dispatcher
-from ragpack_bot.catalog import Catalog
+from ragpack_bot.catalog import Catalog, RuntimeCatalog
 from ragpack_bot.config import load_config
 from ragpack_bot.http import create_app
 from ragpack_bot.storage import OrderStorage
@@ -29,9 +29,11 @@ async def run_http(app: web.Application, host: str, port: int) -> None:
 
 async def main() -> None:
     config = load_config()
-    catalog = Catalog.from_file(config.catalog_path)
     storage = OrderStorage(config.database_path)
     storage.init()
+    seed_catalog = Catalog.from_file(config.catalog_path)
+    storage.seed_products(seed_catalog.products)
+    catalog = RuntimeCatalog(storage)
 
     bot = Bot(
         token=config.bot_token,

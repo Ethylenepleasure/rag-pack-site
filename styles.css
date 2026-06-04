@@ -829,7 +829,8 @@ h1 {
 }
 
 .auth-form label,
-.customer-row label {
+.customer-row label,
+.product-editor label {
   display: grid;
   gap: 8px;
   font: 400 12px/1.4 var(--mono);
@@ -838,7 +839,9 @@ h1 {
 
 .auth-form input,
 .admin-pane select,
-.customer-row textarea {
+.customer-row textarea,
+.product-editor input,
+.product-editor textarea {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 0;
@@ -848,12 +851,14 @@ h1 {
 }
 
 .auth-form input,
-.admin-pane select {
+.admin-pane select,
+.product-editor input {
   min-height: 44px;
   padding: 0 12px;
 }
 
-.customer-row textarea {
+.customer-row textarea,
+.product-editor textarea {
   resize: vertical;
   min-height: 86px;
   padding: 10px 12px;
@@ -916,9 +921,14 @@ h1 {
 
 .admin-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.58fr);
+  grid-template-columns: minmax(0, 0.85fr) minmax(360px, 0.7fr);
   gap: 22px;
   margin-top: 24px;
+}
+
+.admin-pane--products,
+.admin-pane--editor {
+  grid-column: 1 / -1;
 }
 
 .admin-pane {
@@ -997,6 +1007,35 @@ h1 {
   text-transform: uppercase;
 }
 
+.product-editor {
+  display: grid;
+  gap: 14px;
+}
+
+.product-editor__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.checkbox-label {
+  display: flex !important;
+  width: fit-content;
+  align-items: center;
+  gap: 10px;
+}
+
+.checkbox-label input {
+  width: auto;
+  min-height: 0;
+}
+
+.product-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .customer-row__head {
   display: flex;
   align-items: start;
@@ -1016,7 +1055,8 @@ h1 {
   .craft,
   .product-detail__layout,
   .auth-panel,
-  .admin-layout {
+  .admin-layout,
+  .product-editor__grid {
     grid-template-columns: 1fr;
   }
 

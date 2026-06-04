@@ -68,6 +68,122 @@
           </div>
 
           <div class="admin-layout">
+            <section class="admin-pane admin-pane--products" aria-labelledby="products-title">
+              <div class="pane-heading">
+                <h3 id="products-title">Товары</h3>
+                <button class="text-button" id="new-product-button" type="button">Новый товар</button>
+              </div>
+              <div class="table-list" id="products-list"></div>
+            </section>
+
+            <section class="admin-pane admin-pane--editor" aria-labelledby="product-editor-title">
+              <div class="pane-heading">
+                <h3 id="product-editor-title">Карточка товара</h3>
+              </div>
+              <form class="product-editor" id="product-form">
+                <input type="hidden" name="original_slug" />
+                <div class="product-editor__grid">
+                  <label>
+                    Название
+                    <input name="name" required />
+                  </label>
+                  <label>
+                    Slug
+                    <input name="slug" pattern="[a-z0-9]+(-[a-z0-9]+)*" required />
+                  </label>
+                  <label>
+                    Категория
+                    <select name="category" required>
+                      <option value="bags">Сумки</option>
+                      <option value="accessories">Аксессуары</option>
+                      <option value="cases">Чехлы</option>
+                    </select>
+                  </label>
+                  <label>
+                    Тег
+                    <input name="tag" required />
+                  </label>
+                  <label>
+                    Цена
+                    <input name="price" required />
+                  </label>
+                  <label>
+                    Alt основного фото
+                    <input name="alt" required />
+                  </label>
+                </div>
+                <label>
+                  Краткое описание
+                  <textarea name="description" rows="3" required></textarea>
+                </label>
+                <label>
+                  Подробное описание
+                  <textarea name="detail_description" rows="4"></textarea>
+                </label>
+                <div class="product-editor__grid">
+                  <label>
+                    Основное фото
+                    <input name="image" required />
+                  </label>
+                  <label>
+                    Загрузить основное фото
+                    <input name="main_upload" type="file" accept="image/*" />
+                  </label>
+                  <label>
+                    Display name
+                    <textarea name="display_name" rows="2" placeholder="Биг&#10;буля"></textarea>
+                  </label>
+                  <label>
+                    Image fit
+                    <select name="image_fit">
+                      <option value="cover">cover</option>
+                      <option value="contain">contain</option>
+                    </select>
+                  </label>
+                  <label>
+                    Title mark
+                    <select name="title_mark">
+                      <option value="">нет</option>
+                      <option value="blot">клякса</option>
+                    </select>
+                  </label>
+                  <label>
+                    Title size
+                    <select name="title_size">
+                      <option value="">обычный</option>
+                      <option value="compact">compact</option>
+                    </select>
+                  </label>
+                </div>
+                <label>
+                  Галерея
+                  <textarea name="gallery_text" rows="4" placeholder="/uploads/photo.jpg | Описание фото"></textarea>
+                </label>
+                <label>
+                  Загрузить фото в галерею
+                  <input name="gallery_upload" type="file" accept="image/*" multiple />
+                </label>
+                <label>
+                  Характеристики
+                  <textarea name="specs_text" rows="4" placeholder="Материал | Natural leather/ Polymer coating"></textarea>
+                </label>
+                <label>
+                  Особенности
+                  <textarea name="features_text" rows="4" placeholder="Одна строка = один пункт"></textarea>
+                </label>
+                <label>
+                  Заметка
+                  <textarea name="notes" rows="3"></textarea>
+                </label>
+                <label class="checkbox-label">
+                  <input name="is_published" type="checkbox" />
+                  Опубликован
+                </label>
+                <p class="order-form__status" id="product-form-status" aria-live="polite"></p>
+                <button class="order-form__submit" type="submit">Сохранить товар</button>
+              </form>
+            </section>
+
             <section class="admin-pane" aria-labelledby="admin-orders-title">
               <div class="pane-heading">
                 <h3 id="admin-orders-title">Все заказы</h3>

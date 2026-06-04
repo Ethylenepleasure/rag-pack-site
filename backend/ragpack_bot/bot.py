@@ -17,7 +17,7 @@ from aiogram.types import (
     ReplyKeyboardRemove,
 )
 
-from .catalog import Catalog, Product
+from .catalog import Catalog, Product, RuntimeCatalog
 from .config import Config
 from .notifications import format_order, notify_admins, status_keyboard
 from .storage import OrderStorage, STATUSES
@@ -72,6 +72,13 @@ def _product_line(product: Product) -> str:
     return f"{product.name} / {product.price}"
 
 
+def _product_image_path(config: Config, product: Product) -> Path:
+    if product.image.startswith("/uploads/"):
+        return config.uploads_path / product.image.rsplit("/", 1)[-1]
+
+    return config.catalog_path.parent / product.image
+
+
 def _login_contact_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[[KeyboardButton(text="Поделиться телефоном", request_contact=True)]],
@@ -108,7 +115,7 @@ async def _send_product_card(message: Message, config: Config, product: Product)
             product.description,
         )
     )
-    image_path = config.catalog_path.parent / product.image
+    image_path = _product_image_path(config, product)
 
     if image_path.exists():
         await message.answer_photo(
@@ -121,7 +128,7 @@ async def _send_product_card(message: Message, config: Config, product: Product)
     await message.answer(caption, reply_markup=_product_keyboard(product))
 
 
-def create_dispatcher(config: Config, catalog: Catalog, storage: OrderStorage) -> Dispatcher:
+def create_dispatcher(config: Config, catalog: Catalog | RuntimeCatalog, storage: OrderStorage) -> Dispatcher:
     router = Router()
 
     @router.message(CommandStart())

@@ -16,6 +16,7 @@ const RagpackShop = (() => {
 
   const apiUrl = document.querySelector('meta[name="ragpack-api-url"]')?.content || "/api/orders";
   const apiBaseUrl = new URL(apiUrl, window.location.href);
+  const catalogApiUrl = new URL("/api/catalog", apiBaseUrl).toString();
   const profileUrl = new URL("/profile", apiBaseUrl);
   const profileApiUrl = new URL("/api/profile", apiBaseUrl).toString();
 
@@ -34,13 +35,26 @@ const RagpackShop = (() => {
   });
 
   const fetchCatalog = async () => {
-    const response = await fetch(new URL("/catalog.json?v=product-pages-6", window.location.origin), { cache: "no-store" });
+    let products = null;
 
-    if (!response.ok) {
-      throw new Error("catalog request failed");
+    try {
+      const response = await fetch(catalogApiUrl, { cache: "no-store" });
+      if (response.ok) {
+        products = await response.json();
+      }
+    } catch (error) {
+      products = null;
     }
 
-    const products = await response.json();
+    if (!products) {
+      const response = await fetch(new URL("/catalog.json?v=product-pages-6", window.location.origin), { cache: "no-store" });
+
+      if (!response.ok) {
+        throw new Error("catalog request failed");
+      }
+
+      products = await response.json();
+    }
 
     if (!Array.isArray(products)) {
       throw new Error("catalog must be an array");
@@ -64,8 +78,16 @@ const RagpackShop = (() => {
   };
 
   const getAssetUrl = (path) => {
-    if (!path || /^https?:\/\//i.test(path) || path.startsWith("/")) {
+    if (!path || /^https?:\/\//i.test(path)) {
       return path || "";
+    }
+
+    if (path.startsWith("/uploads/")) {
+      return new URL(path, apiBaseUrl).toString();
+    }
+
+    if (path.startsWith("/")) {
+      return path;
     }
 
     return `/${path}`;

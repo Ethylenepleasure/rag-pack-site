@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import re
 import secrets
 import time
 from collections import defaultdict, deque
@@ -12,13 +13,30 @@ from pathlib import Path
 from aiohttp import web
 from aiogram import Bot
 
-from .catalog import Catalog
+from .catalog import Catalog, Product, RuntimeCatalog
 from .config import Config
 from .notifications import notify_admins
 from .storage import Order, OrderStorage, STATUSES, User
 
 
 REQUIRED_FIELDS = ("product_slug", "customer_name", "delivery_address")
+REQUIRED_PRODUCT_FIELDS = ("slug", "category", "tag", "name", "description", "price", "image", "alt")
+PRODUCT_FIELD_LIMITS = {
+    "slug": 80,
+    "category": 40,
+    "tag": 80,
+    "name": 120,
+    "description": 400,
+    "price": 80,
+    "image": 240,
+    "alt": 240,
+    "display_name": 160,
+    "title_mark": 40,
+    "title_size": 40,
+    "image_fit": 40,
+    "detail_description": 1200,
+    "notes": 600,
+}
 FIELD_LIMITS = {
     "product_slug": 80,
     "customer_name": 120,
@@ -28,6 +46,8 @@ FIELD_LIMITS = {
 JSON_CONTENT_TYPE = "application/json"
 SESSION_COOKIE = "ragpack_session"
 LOGIN_CODE_LIMIT = 6
+SLUG_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+UPLOAD_CONTENT_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/gif": ".gif"}
 
 
 def _static_root(config: Config) -> Path:
@@ -52,7 +72,7 @@ def _cors_headers(config: Config, request: web.Request) -> dict[str, str]:
 
     headers = {
         "Access-Control-Allow-Headers": "Content-Type",
-        "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
+        "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
         "Vary": "Origin",
     }
 
@@ -163,6 +183,10 @@ def _order_payload(order: Order) -> dict[str, object]:
     return asdict(order)
 
 
+def _product_payload(product: Product) -> dict[str, object]:
+    return product.to_dict()
+
+
 def _login_url(config: Config) -> str:
     separator = "&" if "?" in config.bot_url else "?"
     return f"{config.bot_url}{separator}start=login"
@@ -173,6 +197,124 @@ def _auth_error(config: Config, request: web.Request, *, admin: bool = False) ->
         {"detail": "Forbidden" if admin else "Authentication required"},
         status=403 if admin else 401,
         headers=_cors_headers(config, request),
+    )
+
+
+def _clean_product_text(payload: dict[str, object], field: str, *, required: bool = False) -> str | None:
+    value = payload.get(field, "")
+
+    if not isinstance(value, str):
+        return None
+
+    value = value.strip()
+    if required and not value:
+        return None
+
+    limit = PRODUCT_FIELD_LIMITS[field]
+    if len(value) > limit:
+        return None
+
+    return value
+
+
+def _clean_gallery(value: object) -> list[dict[str, str]] | None:
+    if value is None:
+        return []
+    if not isinstance(value, list) or len(value) > 8:
+        return None
+
+    gallery: list[dict[str, str]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            return None
+        image = str(item.get("image", "")).strip()
+        alt = str(item.get("alt", "")).strip()
+        if not image:
+            continue
+        if len(image) > PRODUCT_FIELD_LIMITS["image"] or len(alt) > PRODUCT_FIELD_LIMITS["alt"]:
+            return None
+        gallery.append({"image": image, "alt": alt})
+
+    return gallery
+
+
+def _clean_features(value: object) -> list[str] | None:
+    if value is None:
+        return []
+    if not isinstance(value, list) or len(value) > 12:
+        return None
+
+    features = [str(item).strip() for item in value if str(item).strip()]
+    if any(len(item) > 240 for item in features):
+        return None
+    return features
+
+
+def _clean_specs(value: object) -> dict[str, str] | None:
+    if value is None:
+        return {}
+    if not isinstance(value, dict) or len(value) > 12:
+        return None
+
+    specs: dict[str, str] = {}
+    for key, item in value.items():
+        label = str(key).strip()
+        text = str(item).strip()
+        if not label or not text:
+            continue
+        if len(label) > 80 or len(text) > 240:
+            return None
+        specs[label] = text
+    return specs
+
+
+def _clean_bool(value: object) -> bool:
+    return bool(value)
+
+
+def _clean_product(payload: object, *, existing: Product | None = None) -> Product | None:
+    if not isinstance(payload, dict):
+        return None
+
+    strings: dict[str, str] = {}
+    for field in PRODUCT_FIELD_LIMITS:
+        required = field in REQUIRED_PRODUCT_FIELDS
+        value = _clean_product_text(payload, field, required=required)
+        if value is None:
+            return None
+        strings[field] = value
+
+    if not SLUG_PATTERN.fullmatch(strings["slug"]):
+        return None
+
+    gallery = _clean_gallery(payload.get("gallery"))
+    features = _clean_features(payload.get("features"))
+    specs = _clean_specs(payload.get("specs"))
+    if gallery is None or features is None or specs is None:
+        return None
+
+    return Product(
+        slug=strings["slug"],
+        category=strings["category"],
+        tag=strings["tag"],
+        name=strings["name"],
+        description=strings["description"],
+        price=strings["price"],
+        image=strings["image"],
+        alt=strings["alt"],
+        display_name=strings["display_name"],
+        title_mark=strings["title_mark"],
+        title_size=strings["title_size"],
+        image_fit=strings["image_fit"] or "cover",
+        detail_description=strings["detail_description"],
+        gallery=gallery,
+        features=features,
+        specs=specs,
+        notes=strings["notes"],
+        is_published=_clean_bool(payload.get("is_published", existing.is_published if existing else False)),
+        is_archived=_clean_bool(payload.get("is_archived", existing.is_archived if existing else False)),
+        created_at=existing.created_at if existing else "",
+        updated_at=existing.updated_at if existing else "",
     )
 
 
@@ -236,7 +378,7 @@ async def _notification_context(app: web.Application):
         await worker
 
 
-def create_app(config: Config, bot: Bot, catalog: Catalog, storage: OrderStorage) -> web.Application:
+def create_app(config: Config, bot: Bot, catalog: Catalog | RuntimeCatalog, storage: OrderStorage) -> web.Application:
     app = web.Application(
         client_max_size=config.max_request_size,
         middlewares=[_rate_limit_middleware(config)],
@@ -246,10 +388,15 @@ def create_app(config: Config, bot: Bot, catalog: Catalog, storage: OrderStorage
     app["catalog"] = catalog
     app["storage"] = storage
     app["static_root"] = _static_root(config)
+    config.uploads_path.mkdir(parents=True, exist_ok=True)
     app.cleanup_ctx.append(_notification_context)
 
     async def health(request: web.Request) -> web.Response:
         return web.json_response({"ok": True}, headers=_cors_headers(config, request))
+
+    async def public_catalog(request: web.Request) -> web.Response:
+        products = storage.list_products(public_only=True)
+        return web.json_response([_product_payload(product) for product in products], headers=_cors_headers(config, request))
 
     async def options(request: web.Request) -> web.Response:
         return web.Response(headers=_cors_headers(config, request))
@@ -421,6 +568,97 @@ def create_app(config: Config, bot: Bot, catalog: Catalog, storage: OrderStorage
 
         return web.json_response({"customers": customers}, headers=_cors_headers(config, request))
 
+    async def admin_products(request: web.Request) -> web.Response:
+        user = _current_user(request)
+        if user is None or not _is_admin(config, user):
+            return _auth_error(config, request, admin=user is not None)
+
+        products = storage.list_products(public_only=False)
+        return web.json_response({"products": [_product_payload(product) for product in products]}, headers=_cors_headers(config, request))
+
+    async def create_admin_product(request: web.Request) -> web.Response:
+        user = _current_user(request)
+        if user is None or not _is_admin(config, user):
+            return _auth_error(config, request, admin=user is not None)
+
+        payload = await _json_payload(request)
+        product = _clean_product(payload)
+        if product is None:
+            return web.json_response({"detail": "Invalid product fields"}, status=422, headers=_cors_headers(config, request))
+
+        if storage.get_product(product.slug) is not None:
+            return web.json_response({"detail": "Product slug already exists"}, status=409, headers=_cors_headers(config, request))
+
+        saved = storage.save_product(product)
+        return web.json_response({"ok": True, "product": _product_payload(saved)}, status=201, headers=_cors_headers(config, request))
+
+    async def update_admin_product(request: web.Request) -> web.Response:
+        user = _current_user(request)
+        if user is None or not _is_admin(config, user):
+            return _auth_error(config, request, admin=user is not None)
+
+        current_slug = request.match_info["slug"]
+        existing = storage.get_product(current_slug)
+        if existing is None:
+            return web.json_response({"detail": "Product not found"}, status=404, headers=_cors_headers(config, request))
+
+        payload = await _json_payload(request)
+        product = _clean_product(payload, existing=existing)
+        if product is None:
+            return web.json_response({"detail": "Invalid product fields"}, status=422, headers=_cors_headers(config, request))
+
+        try:
+            saved = storage.save_product(product, previous_slug=current_slug)
+        except ValueError:
+            return web.json_response({"detail": "Product slug already exists"}, status=409, headers=_cors_headers(config, request))
+
+        return web.json_response({"ok": True, "product": _product_payload(saved)}, headers=_cors_headers(config, request))
+
+    async def archive_admin_product(request: web.Request) -> web.Response:
+        user = _current_user(request)
+        if user is None or not _is_admin(config, user):
+            return _auth_error(config, request, admin=user is not None)
+
+        try:
+            product = storage.archive_product(request.match_info["slug"])
+        except KeyError:
+            return web.json_response({"detail": "Product not found"}, status=404, headers=_cors_headers(config, request))
+
+        return web.json_response({"ok": True, "product": _product_payload(product)}, headers=_cors_headers(config, request))
+
+    async def upload_admin_file(request: web.Request) -> web.Response:
+        user = _current_user(request)
+        if user is None or not _is_admin(config, user):
+            return _auth_error(config, request, admin=user is not None)
+
+        if not request.content_type.startswith("multipart/form-data"):
+            return web.json_response({"detail": "Content-Type must be multipart/form-data"}, status=415, headers=_cors_headers(config, request))
+
+        reader = await request.multipart()
+        field = await reader.next()
+        if field is None or field.name != "file" or not field.filename:
+            return web.json_response({"detail": "Missing upload file"}, status=422, headers=_cors_headers(config, request))
+
+        suffix = UPLOAD_CONTENT_TYPES.get(field.headers.get("Content-Type", "").split(";", 1)[0].strip().lower())
+        if suffix is None:
+            return web.json_response({"detail": "Unsupported image type"}, status=422, headers=_cors_headers(config, request))
+
+        filename = f"{int(time.time())}-{secrets.token_urlsafe(8)}{suffix}"
+        upload_path = config.uploads_path / filename
+        size = 0
+        with upload_path.open("wb") as file:
+            while True:
+                chunk = await field.read_chunk()
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > config.max_request_size:
+                    upload_path.unlink(missing_ok=True)
+                    return web.json_response({"detail": "Upload is too large"}, status=413, headers=_cors_headers(config, request))
+                file.write(chunk)
+
+        return web.json_response({"ok": True, "path": f"/uploads/{filename}"}, status=201, headers=_cors_headers(config, request))
+
     async def update_customer_note(request: web.Request) -> web.Response:
         user = _current_user(request)
         if user is None or not _is_admin(config, user):
@@ -529,12 +767,14 @@ def create_app(config: Config, bot: Bot, catalog: Catalog, storage: OrderStorage
         app.router.add_get(page_path, static_page)
         app.router.add_post(page_path, static_page)
     app.router.add_static("/assets", app["static_root"] / "assets")
+    app.router.add_static("/uploads", config.uploads_path)
     app.router.add_get(
         "/{filename:styles\\.css|shared\\.js|script\\.js|product\\.js|profile\\.js|admin\\.js|catalog\\.json}",
         static_file,
     )
     app.router.add_get("/product/{slug}", static_page)
     app.router.add_get("/health", health)
+    app.router.add_get("/api/catalog", public_catalog)
     app.router.add_options("/{tail:.*}", options)
     app.router.add_post("/api/auth/start", start_auth)
     app.router.add_post("/api/auth/verify", verify_auth)
@@ -544,5 +784,10 @@ def create_app(config: Config, bot: Bot, catalog: Catalog, storage: OrderStorage
     app.router.add_patch("/api/admin/orders/{order_id}", update_admin_order)
     app.router.add_get("/api/admin/customers", admin_customers)
     app.router.add_patch("/api/admin/customers/{customer_id}/note", update_customer_note)
+    app.router.add_get("/api/admin/products", admin_products)
+    app.router.add_post("/api/admin/products", create_admin_product)
+    app.router.add_patch("/api/admin/products/{slug}", update_admin_product)
+    app.router.add_delete("/api/admin/products/{slug}", archive_admin_product)
+    app.router.add_post("/api/admin/uploads", upload_admin_file)
     app.router.add_post("/api/orders", create_order)
     return app

@@ -11,9 +11,14 @@ const adminView = document.querySelector("#admin-view");
 const adminOrdersList = document.querySelector("#admin-orders-list");
 const customersList = document.querySelector("#customers-list");
 const statusFilter = document.querySelector("#status-filter");
+const productsList = document.querySelector("#products-list");
+const productForm = document.querySelector("#product-form");
+const newProductButton = document.querySelector("#new-product-button");
+const productFormStatus = document.querySelector("#product-form-status");
 const fallbackBotLoginUrl = "https://t.me/rag_pack_bot?start=login";
 
 let statuses = {};
+let products = [];
 
 const statusText = (statusMap, status) => statusMap?.[status] || status;
 
@@ -51,6 +56,29 @@ const api = async (url, options = {}) => {
   }
 
   return payload;
+};
+
+const uploadFile = async (file) => {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch("/api/admin/uploads", {
+    method: "POST",
+    credentials: "same-origin",
+    body: formData,
+  });
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(payload.detail || "upload failed");
+  }
+
+  return payload.path;
+};
+
+const setProductStatus = (message, type = "") => {
+  productFormStatus.textContent = message;
+  productFormStatus.dataset.type = type;
 };
 
 const renderProfileOrders = (orders, statusMap) => {
@@ -150,6 +178,159 @@ const renderCustomers = (customers) => {
     .join("");
 };
 
+const productStatusLabel = (product) => {
+  if (product.is_archived) {
+    return "Архив";
+  }
+
+  return product.is_published ? "Опубликован" : "Черновик";
+};
+
+const renderProducts = () => {
+  if (!products.length) {
+    productsList.innerHTML = '<p class="empty-state">Товаров пока нет.</p>';
+    return;
+  }
+
+  productsList.innerHTML = products
+    .map(
+      (product) => `
+        <article class="table-row table-row--admin">
+          <div>
+            <strong>${escapeHtml(product.name)} / ${escapeHtml(product.price)}</strong>
+            <span>${escapeHtml(product.slug)} / ${escapeHtml(product.category)} / ${escapeHtml(product.tag)}</span>
+            <span class="status-pill">${escapeHtml(productStatusLabel(product))}</span>
+          </div>
+          <div class="product-actions">
+            <button class="text-button" type="button" data-edit-product="${escapeHtml(product.slug)}">Редактировать</button>
+            ${
+              product.is_archived
+                ? `<button class="text-button" type="button" data-restore-product="${escapeHtml(product.slug)}">Восстановить</button>`
+                : `<button class="text-button" type="button" data-archive-product="${escapeHtml(product.slug)}">Убрать из каталога</button>`
+            }
+          </div>
+        </article>
+      `,
+    )
+    .join("");
+};
+
+const productToGalleryText = (product) =>
+  (product.gallery || []).map((item) => `${item.image}${item.alt ? ` | ${item.alt}` : ""}`).join("\n");
+
+const productToSpecsText = (product) =>
+  Object.entries(product.specs || {})
+    .map(([label, value]) => `${label} | ${value}`)
+    .join("\n");
+
+const productToFeaturesText = (product) => (product.features || []).join("\n");
+
+const fillProductForm = (product = null) => {
+  productForm.reset();
+  setProductStatus("");
+
+  const data =
+    product ||
+    {
+      slug: "",
+      category: "bags",
+      tag: "",
+      name: "",
+      description: "",
+      detail_description: "",
+      price: "",
+      image: "",
+      alt: "",
+      display_name: "",
+      image_fit: "cover",
+      title_mark: "",
+      title_size: "",
+      notes: "",
+      is_published: false,
+      is_archived: false,
+      gallery: [],
+      specs: {},
+      features: [],
+    };
+
+  productForm.elements.original_slug.value = product ? product.slug : "";
+  productForm.elements.slug.value = data.slug || "";
+  productForm.elements.category.value = data.category || "bags";
+  productForm.elements.tag.value = data.tag || "";
+  productForm.elements.name.value = data.name || "";
+  productForm.elements.description.value = data.description || "";
+  productForm.elements.detail_description.value = data.detail_description || "";
+  productForm.elements.price.value = data.price || "";
+  productForm.elements.image.value = data.image || "";
+  productForm.elements.alt.value = data.alt || "";
+  productForm.elements.display_name.value = data.display_name || "";
+  productForm.elements.image_fit.value = data.image_fit || "cover";
+  productForm.elements.title_mark.value = data.title_mark || "";
+  productForm.elements.title_size.value = data.title_size || "";
+  productForm.elements.notes.value = data.notes || "";
+  productForm.elements.is_published.checked = Boolean(data.is_published);
+  productForm.elements.gallery_text.value = productToGalleryText(data);
+  productForm.elements.specs_text.value = productToSpecsText(data);
+  productForm.elements.features_text.value = productToFeaturesText(data);
+};
+
+const parseGalleryText = (value) =>
+  value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [image, ...altParts] = line.split("|");
+      return { image: image.trim(), alt: altParts.join("|").trim() };
+    })
+    .filter((item) => item.image);
+
+const parseSpecsText = (value) =>
+  Object.fromEntries(
+    value
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [label, ...valueParts] = line.split("|");
+        return [label.trim(), valueParts.join("|").trim()];
+      })
+      .filter(([label, text]) => label && text),
+  );
+
+const parseFeaturesText = (value) =>
+  value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+const productPayloadFromForm = () => {
+  const formData = new FormData(productForm);
+  const originalSlug = formData.get("original_slug")?.trim();
+  const existingProduct = products.find((item) => item.slug === originalSlug);
+  return {
+    slug: formData.get("slug")?.trim(),
+    category: formData.get("category")?.trim(),
+    tag: formData.get("tag")?.trim(),
+    name: formData.get("name")?.trim(),
+    description: formData.get("description")?.trim(),
+    detail_description: formData.get("detail_description")?.trim(),
+    price: formData.get("price")?.trim(),
+    image: formData.get("image")?.trim(),
+    alt: formData.get("alt")?.trim(),
+    display_name: formData.get("display_name")?.trim(),
+    image_fit: formData.get("image_fit")?.trim(),
+    title_mark: formData.get("title_mark")?.trim(),
+    title_size: formData.get("title_size")?.trim(),
+    gallery: parseGalleryText(formData.get("gallery_text") || ""),
+    specs: parseSpecsText(formData.get("specs_text") || ""),
+    features: parseFeaturesText(formData.get("features_text") || ""),
+    notes: formData.get("notes")?.trim(),
+    is_published: productForm.elements.is_published.checked,
+    is_archived: Boolean(existingProduct?.is_archived),
+  };
+};
+
 const loadAdminOrders = async () => {
   const query = statusFilter.value ? `?status=${encodeURIComponent(statusFilter.value)}` : "";
   const payload = await api(`/api/admin/orders${query}`, { headers: {} });
@@ -163,9 +344,17 @@ const loadCustomers = async () => {
   renderCustomers(payload.customers);
 };
 
+const loadProducts = async () => {
+  const payload = await api("/api/admin/products", { headers: {} });
+  products = payload.products || [];
+  renderProducts();
+};
+
 const loadAdmin = async () => {
   await loadAdminOrders();
   await loadCustomers();
+  await loadProducts();
+  fillProductForm();
   adminView.hidden = false;
 };
 
@@ -265,6 +454,118 @@ customersList.addEventListener("click", async (event) => {
     body: JSON.stringify({ note: textarea.value }),
   });
   button.disabled = false;
+});
+
+newProductButton.addEventListener("click", () => {
+  fillProductForm();
+  productForm.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
+productsList.addEventListener("click", async (event) => {
+  const editButton = event.target.closest("[data-edit-product]");
+  const archiveButton = event.target.closest("[data-archive-product]");
+  const restoreButton = event.target.closest("[data-restore-product]");
+
+  if (editButton) {
+    const product = products.find((item) => item.slug === editButton.dataset.editProduct);
+    if (product) {
+      fillProductForm(product);
+      productForm.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    return;
+  }
+
+  if (archiveButton) {
+    const slug = archiveButton.dataset.archiveProduct;
+    if (!window.confirm("Убрать товар из каталога сайта и бота?")) {
+      return;
+    }
+
+    archiveButton.disabled = true;
+    await api(`/api/admin/products/${encodeURIComponent(slug)}`, { method: "DELETE" });
+    await loadProducts();
+    return;
+  }
+
+  if (restoreButton) {
+    const slug = restoreButton.dataset.restoreProduct;
+    const product = products.find((item) => item.slug === slug);
+    if (!product) {
+      return;
+    }
+
+    restoreButton.disabled = true;
+    await api(`/api/admin/products/${encodeURIComponent(slug)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ ...product, is_archived: false, is_published: false }),
+    });
+    await loadProducts();
+  }
+});
+
+productForm.elements.main_upload.addEventListener("change", async () => {
+  const file = productForm.elements.main_upload.files?.[0];
+  if (!file) {
+    return;
+  }
+
+  setProductStatus("Загружаем основное фото...");
+  try {
+    productForm.elements.image.value = await uploadFile(file);
+    setProductStatus("Фото загружено.", "success");
+  } catch (error) {
+    setProductStatus("Не получилось загрузить фото.", "error");
+  } finally {
+    productForm.elements.main_upload.value = "";
+  }
+});
+
+productForm.elements.gallery_upload.addEventListener("change", async () => {
+  const files = Array.from(productForm.elements.gallery_upload.files || []);
+  if (!files.length) {
+    return;
+  }
+
+  setProductStatus("Загружаем фото галереи...");
+  try {
+    const uploaded = [];
+    for (const file of files) {
+      uploaded.push(await uploadFile(file));
+    }
+    const current = productForm.elements.gallery_text.value.trim();
+    productForm.elements.gallery_text.value = [current, ...uploaded].filter(Boolean).join("\n");
+    setProductStatus("Фото галереи загружены.", "success");
+  } catch (error) {
+    setProductStatus("Не получилось загрузить фото галереи.", "error");
+  } finally {
+    productForm.elements.gallery_upload.value = "";
+  }
+});
+
+productForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const submitButton = productForm.querySelector('button[type="submit"]');
+  const originalSlug = productForm.elements.original_slug.value;
+  const payload = productPayloadFromForm();
+  const url = originalSlug ? `/api/admin/products/${encodeURIComponent(originalSlug)}` : "/api/admin/products";
+  const method = originalSlug ? "PATCH" : "POST";
+
+  setProductStatus("Сохраняем товар...");
+  submitButton.disabled = true;
+
+  try {
+    const response = await api(url, {
+      method,
+      body: JSON.stringify(payload),
+    });
+    setProductStatus("Товар сохранен.", "success");
+    await loadProducts();
+    fillProductForm(response.product);
+  } catch (error) {
+    setProductStatus("Не получилось сохранить товар. Проверьте обязательные поля и slug.", "error");
+  } finally {
+    submitButton.disabled = false;
+  }
 });
 
 statusFilter.addEventListener("change", loadAdminOrders);

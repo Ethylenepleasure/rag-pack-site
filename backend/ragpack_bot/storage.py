@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+
+from .catalog import Product
 
 
 STATUS_NEW = "new"
@@ -68,6 +71,51 @@ class CustomerNote:
     user_id: int
     note: str
     updated_at: str
+
+
+PRODUCT_JSON_FIELDS = ("gallery", "features", "specs")
+PRODUCT_TEXT_FIELDS = (
+    "slug",
+    "category",
+    "tag",
+    "name",
+    "description",
+    "price",
+    "image",
+    "alt",
+    "display_name",
+    "title_mark",
+    "title_size",
+    "image_fit",
+    "detail_description",
+    "notes",
+)
+
+
+def _now() -> str:
+    return datetime.now(UTC).isoformat(timespec="seconds")
+
+
+def _product_from_row(row: sqlite3.Row) -> Product:
+    data = dict(row)
+    for field in PRODUCT_JSON_FIELDS:
+        fallback = "{}" if field == "specs" else "[]"
+        try:
+            data[field] = json.loads(data[field] or fallback)
+        except json.JSONDecodeError:
+            data[field] = {} if field == "specs" else []
+    data["is_published"] = bool(data["is_published"])
+    data["is_archived"] = bool(data["is_archived"])
+    return Product(**data)
+
+
+def _product_values(product: Product) -> dict[str, object]:
+    data = product.to_dict()
+    for field in PRODUCT_JSON_FIELDS:
+        data[field] = json.dumps(data[field], ensure_ascii=False)
+    data["is_published"] = 1 if product.is_published else 0
+    data["is_archived"] = 1 if product.is_archived else 0
+    return data
 
 
 class OrderStorage:
@@ -160,11 +208,257 @@ class OrderStorage:
                 )
                 """
             )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS products (
+                    slug TEXT PRIMARY KEY,
+                    category TEXT NOT NULL,
+                    tag TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    price TEXT NOT NULL,
+                    image TEXT NOT NULL,
+                    alt TEXT NOT NULL,
+                    display_name TEXT NOT NULL DEFAULT '',
+                    title_mark TEXT NOT NULL DEFAULT '',
+                    title_size TEXT NOT NULL DEFAULT '',
+                    image_fit TEXT NOT NULL DEFAULT 'cover',
+                    detail_description TEXT NOT NULL DEFAULT '',
+                    gallery TEXT NOT NULL DEFAULT '[]',
+                    features TEXT NOT NULL DEFAULT '[]',
+                    specs TEXT NOT NULL DEFAULT '{}',
+                    notes TEXT NOT NULL DEFAULT '',
+                    is_published INTEGER NOT NULL DEFAULT 0,
+                    is_archived INTEGER NOT NULL DEFAULT 0,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+                """
+            )
             connection.execute("CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id)")
             connection.execute("CREATE INDEX IF NOT EXISTS idx_orders_telegram_user_id ON orders(telegram_user_id)")
             connection.execute("CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)")
             connection.execute("CREATE INDEX IF NOT EXISTS idx_login_codes_code ON login_codes(code)")
             connection.execute("CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions(token_hash)")
+            connection.execute("CREATE INDEX IF NOT EXISTS idx_products_public ON products(is_published, is_archived)")
+
+    def seed_products(self, products: list[Product]) -> None:
+        with self._connect() as connection:
+            count = int(connection.execute("SELECT COUNT(*) FROM products").fetchone()[0])
+            if count:
+                return
+
+            for product in products:
+                now = _now()
+                seeded = Product(
+                    **{
+                        **product.to_dict(),
+                        "is_published": True,
+                        "is_archived": False,
+                        "created_at": product.created_at or now,
+                        "updated_at": product.updated_at or now,
+                    }
+                )
+                self._insert_product(connection, seeded)
+
+    def _insert_product(self, connection: sqlite3.Connection, product: Product) -> None:
+        data = _product_values(product)
+        connection.execute(
+            """
+            INSERT INTO products (
+                slug,
+                category,
+                tag,
+                name,
+                description,
+                price,
+                image,
+                alt,
+                display_name,
+                title_mark,
+                title_size,
+                image_fit,
+                detail_description,
+                gallery,
+                features,
+                specs,
+                notes,
+                is_published,
+                is_archived,
+                created_at,
+                updated_at
+            )
+            VALUES (
+                :slug,
+                :category,
+                :tag,
+                :name,
+                :description,
+                :price,
+                :image,
+                :alt,
+                :display_name,
+                :title_mark,
+                :title_size,
+                :image_fit,
+                :detail_description,
+                :gallery,
+                :features,
+                :specs,
+                :notes,
+                :is_published,
+                :is_archived,
+                :created_at,
+                :updated_at
+            )
+            """,
+            data,
+        )
+
+    def list_products(self, *, public_only: bool = False) -> list[Product]:
+        query = "SELECT * FROM products"
+        values: tuple[object, ...] = ()
+        if public_only:
+            query += " WHERE is_published = 1 AND is_archived = 0"
+        query += " ORDER BY rowid ASC"
+
+        with self._connect() as connection:
+            rows = connection.execute(query, values).fetchall()
+
+        return [_product_from_row(row) for row in rows]
+
+    def get_product(self, slug: str, *, public_only: bool = False) -> Product | None:
+        query = "SELECT * FROM products WHERE slug = ?"
+        values: tuple[object, ...] = (slug,)
+        if public_only:
+            query += " AND is_published = 1 AND is_archived = 0"
+
+        with self._connect() as connection:
+            row = connection.execute(query, values).fetchone()
+
+        return _product_from_row(row) if row is not None else None
+
+    def by_product_category(self, category: str, *, public_only: bool = False) -> list[Product]:
+        query = "SELECT * FROM products WHERE category = ?"
+        values: tuple[object, ...] = (category,)
+        if public_only:
+            query += " AND is_published = 1 AND is_archived = 0"
+        query += " ORDER BY rowid ASC"
+
+        with self._connect() as connection:
+            rows = connection.execute(query, values).fetchall()
+
+        return [_product_from_row(row) for row in rows]
+
+    def save_product(self, product: Product, *, previous_slug: str | None = None) -> Product:
+        now = _now()
+        current = self.get_product(previous_slug or product.slug)
+        created_at = current.created_at if current else now
+        saved = Product(
+            **{
+                **product.to_dict(),
+                "created_at": product.created_at or created_at,
+                "updated_at": now,
+            }
+        )
+        data = _product_values(saved)
+
+        with self._connect() as connection:
+            if previous_slug and previous_slug != saved.slug:
+                duplicate = connection.execute("SELECT slug FROM products WHERE slug = ?", (saved.slug,)).fetchone()
+                if duplicate is not None:
+                    raise ValueError("Product slug already exists")
+                connection.execute("DELETE FROM products WHERE slug = ?", (previous_slug,))
+                self._insert_product(connection, saved)
+            else:
+                connection.execute(
+                    """
+                    INSERT INTO products (
+                        slug,
+                        category,
+                        tag,
+                        name,
+                        description,
+                        price,
+                        image,
+                        alt,
+                        display_name,
+                        title_mark,
+                        title_size,
+                        image_fit,
+                        detail_description,
+                        gallery,
+                        features,
+                        specs,
+                        notes,
+                        is_published,
+                        is_archived,
+                        created_at,
+                        updated_at
+                    )
+                    VALUES (
+                        :slug,
+                        :category,
+                        :tag,
+                        :name,
+                        :description,
+                        :price,
+                        :image,
+                        :alt,
+                        :display_name,
+                        :title_mark,
+                        :title_size,
+                        :image_fit,
+                        :detail_description,
+                        :gallery,
+                        :features,
+                        :specs,
+                        :notes,
+                        :is_published,
+                        :is_archived,
+                        :created_at,
+                        :updated_at
+                    )
+                    ON CONFLICT(slug) DO UPDATE SET
+                        category = excluded.category,
+                        tag = excluded.tag,
+                        name = excluded.name,
+                        description = excluded.description,
+                        price = excluded.price,
+                        image = excluded.image,
+                        alt = excluded.alt,
+                        display_name = excluded.display_name,
+                        title_mark = excluded.title_mark,
+                        title_size = excluded.title_size,
+                        image_fit = excluded.image_fit,
+                        detail_description = excluded.detail_description,
+                        gallery = excluded.gallery,
+                        features = excluded.features,
+                        specs = excluded.specs,
+                        notes = excluded.notes,
+                        is_published = excluded.is_published,
+                        is_archived = excluded.is_archived,
+                        updated_at = excluded.updated_at
+                    """,
+                    data,
+                )
+
+        return self.get_product(saved.slug) or saved
+
+    def archive_product(self, slug: str) -> Product:
+        now = _now()
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "UPDATE products SET is_archived = 1, is_published = 0, updated_at = ? WHERE slug = ?",
+                (now, slug),
+            )
+            if cursor.rowcount == 0:
+                raise KeyError(f"Product {slug} not found")
+
+        product = self.get_product(slug)
+        if product is None:
+            raise KeyError(f"Product {slug} not found")
+        return product
 
     def upsert_user(
         self,

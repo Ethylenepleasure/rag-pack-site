@@ -12,6 +12,7 @@ class Config:
     admin_ids: tuple[int, ...]
     database_path: Path
     catalog_path: Path
+    uploads_path: Path
     host: str
     port: int
     cors_origins: tuple[str, ...]
@@ -69,10 +70,11 @@ def load_config() -> Config:
         admin_ids=admin_ids,
         database_path=Path(os.getenv("DATABASE_PATH", "/data/orders.sqlite3")),
         catalog_path=Path(os.getenv("CATALOG_PATH", "/app/catalog.json")),
+        uploads_path=Path(os.getenv("UPLOADS_PATH", "/data/uploads")),
         host=os.getenv("HOST", "0.0.0.0"),
         port=int(os.getenv("PORT", "8080")),
         cors_origins=_parse_origins(os.getenv("CORS_ORIGINS", "")),
-        max_request_size=int(os.getenv("MAX_REQUEST_SIZE", "8192")),
+        max_request_size=int(os.getenv("MAX_REQUEST_SIZE", str(10 * 1024 * 1024))),
         rate_limit_requests=int(os.getenv("RATE_LIMIT_REQUESTS", "10")),
         rate_limit_window_seconds=int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60")),
         notification_queue_size=int(os.getenv("NOTIFICATION_QUEUE_SIZE", "100")),
