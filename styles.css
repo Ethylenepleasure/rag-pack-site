@@ -921,14 +921,54 @@ h1 {
 
 .admin-layout {
   display: grid;
-  grid-template-columns: minmax(0, 0.85fr) minmax(360px, 0.7fr);
   gap: 22px;
   margin-top: 24px;
 }
 
-.admin-pane--products,
-.admin-pane--editor {
-  grid-column: 1 / -1;
+.admin-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  margin-top: 24px;
+}
+
+.admin-tab {
+  min-height: 46px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-radius: 0;
+  padding: 0 20px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: 700 13px/1 var(--mono);
+  text-transform: uppercase;
+}
+
+.admin-tab:first-child {
+  border-left: 1px solid var(--line);
+}
+
+.admin-tab.is-active {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.admin-tab:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+.admin-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(360px, 0.7fr);
+  gap: 22px;
+}
+
+.admin-panel:not([data-admin-panel="products"]) {
+  grid-template-columns: 1fr;
 }
 
 .admin-pane {
@@ -1036,6 +1076,12 @@ h1 {
   gap: 8px;
 }
 
+.field-hint {
+  display: block;
+  color: var(--muted);
+  font: 400 12px/1.5 var(--mono);
+}
+
 .customer-row__head {
   display: flex;
   align-items: start;
@@ -1056,6 +1102,7 @@ h1 {
   .product-detail__layout,
   .auth-panel,
   .admin-layout,
+  .admin-panel,
   .product-editor__grid {
     grid-template-columns: 1fr;
   }
@@ -1066,6 +1113,11 @@ h1 {
 
   .product-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-tab {
+    flex: 1 1 33%;
+    padding: 0 12px;
   }
 
   .product-detail__content {

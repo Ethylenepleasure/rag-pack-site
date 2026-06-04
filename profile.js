@@ -15,6 +15,8 @@ const productsList = document.querySelector("#products-list");
 const productForm = document.querySelector("#product-form");
 const newProductButton = document.querySelector("#new-product-button");
 const productFormStatus = document.querySelector("#product-form-status");
+const adminTabButtons = Array.from(document.querySelectorAll("[data-admin-tab]"));
+const adminPanels = Array.from(document.querySelectorAll("[data-admin-panel]"));
 const fallbackBotLoginUrl = "https://t.me/rag_pack_bot?start=login";
 
 let statuses = {};
@@ -79,6 +81,31 @@ const uploadFile = async (file) => {
 const setProductStatus = (message, type = "") => {
   productFormStatus.textContent = message;
   productFormStatus.dataset.type = type;
+};
+
+const setAdminTab = (tab, { updateHash = true } = {}) => {
+  const nextTab = adminPanels.some((panel) => panel.dataset.adminPanel === tab) ? tab : "products";
+
+  adminTabButtons.forEach((button) => {
+    const isActive = button.dataset.adminTab === nextTab;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
+  });
+
+  adminPanels.forEach((panel) => {
+    const isActive = panel.dataset.adminPanel === nextTab;
+    panel.hidden = !isActive;
+    panel.classList.toggle("is-active", isActive);
+  });
+
+  if (updateHash) {
+    window.history.replaceState(null, "", `#admin-${nextTab}`);
+  }
+};
+
+const adminTabFromHash = () => {
+  const match = window.location.hash.match(/^#admin-(products|orders|customers)$/);
+  return match ? match[1] : "products";
 };
 
 const renderProfileOrders = (orders, statusMap) => {
@@ -355,6 +382,7 @@ const loadAdmin = async () => {
   await loadCustomers();
   await loadProducts();
   fillProductForm();
+  setAdminTab(adminTabFromHash(), { updateHash: false });
   adminView.hidden = false;
 };
 
@@ -457,8 +485,15 @@ customersList.addEventListener("click", async (event) => {
 });
 
 newProductButton.addEventListener("click", () => {
+  setAdminTab("products");
   fillProductForm();
   productForm.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
+adminTabButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    setAdminTab(button.dataset.adminTab);
+  });
 });
 
 productsList.addEventListener("click", async (event) => {
@@ -469,6 +504,7 @@ productsList.addEventListener("click", async (event) => {
   if (editButton) {
     const product = products.find((item) => item.slug === editButton.dataset.editProduct);
     if (product) {
+      setAdminTab("products");
       fillProductForm(product);
       productForm.scrollIntoView({ behavior: "smooth", block: "start" });
     }
