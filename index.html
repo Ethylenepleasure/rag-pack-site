@@ -45,8 +45,13 @@
       </div>
       <div class="hero__layout">
         <div>
-          <div class="hero__media">
-            <img src="assets/product-3.jpg" alt="Крупный фрагмент черного кожаного аксессуара" />
+          <div class="hero__media hero__media--video">
+            <div class="hero-loop" aria-label="Зацикленное видео RAG PACK">
+              <video class="hero-loop__video" autoplay loop muted playsinline preload="auto" poster="assets/product-3.jpg">
+                <source src="assets/hero-loop.mp4" type="video/mp4" />
+              </video>
+              <img class="hero-loop__fallback" src="assets/product-3.jpg" alt="Крупный фрагмент черного кожаного аксессуара" />
+            </div>
           </div>
           <div class="hero__content">
             <p class="section-label">adjustable fastening / leather base / polymer buildup</p>
