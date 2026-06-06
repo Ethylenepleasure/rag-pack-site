@@ -402,6 +402,9 @@ def create_app(config: Config, bot: Bot, catalog: Catalog | RuntimeCatalog, stor
         return web.Response(headers=_cors_headers(config, request))
 
     async def static_page(request: web.Request) -> web.FileResponse:
+        if request.host.split(":", 1)[0] == "api.ragpack.ru" and request.path in {"/", "/index.html"}:
+            raise web.HTTPFound("https://ragpack.ru/")
+
         page = "index.html"
         if request.path in {"/profile", "/profile.html", "/admin", "/admin.html"}:
             page = "profile.html"
