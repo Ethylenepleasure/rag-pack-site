@@ -7,7 +7,7 @@ const renderState = (title, message = "") => {
       <p class="section-label">object card</p>
       <h1>${RagpackShop.escapeHtml(title)}</h1>
       ${message ? `<p>${RagpackShop.escapeHtml(message)}</p>` : ""}
-      <a class="hero__button" href="/#catalog">Вернуться в каталог</a>
+      <a class="hero__button" href="https://ragpack.ru/#catalog">Вернуться в каталог</a>
     </section>
   `;
 };
@@ -89,7 +89,7 @@ const renderProduct = (product) => {
         ${createGallery(product)}
       </div>
       <article class="product-detail__content">
-        <a class="product-detail__back" href="/#catalog">Назад в каталог</a>
+        <a class="product-detail__back" href="https://ragpack.ru/#catalog">Назад в каталог</a>
         <p class="section-label">${RagpackShop.escapeHtml(product.tag || product.category)}</p>
         <h1 id="product-title" class="${product.title_size === "compact" ? "product-detail__title--compact" : ""}">${createDisplayTitle(product)}</h1>
         <strong class="product-detail__price">${RagpackShop.escapeHtml(product.price)}</strong>
