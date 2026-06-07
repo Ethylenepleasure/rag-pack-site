@@ -510,13 +510,16 @@ def create_app(config: Config, bot: Bot, catalog: Catalog | RuntimeCatalog, stor
         return web.Response(text=_sitemap_xml(products), content_type="application/xml")
 
     async def static_page(request: web.Request) -> web.FileResponse:
-        if request.host.split(":", 1)[0] == "api.ragpack.ru" and request.path in {"/", "/index.html"}:
+        host = request.host.split(":", 1)[0]
+        if host == "api.ragpack.ru" and request.path in {"/", "/index.html"}:
             raise web.HTTPFound("https://ragpack.ru/")
+        if host == "api.ragpack.ru" and request.path.startswith("/product/"):
+            raise web.HTTPMovedPermanently(location=f"{PUBLIC_SITE_ORIGIN}{request.path}")
 
         if request.path == "/product.html":
             slug = request.query.get("slug", "")
             if slug and SLUG_PATTERN.fullmatch(slug):
-                raise web.HTTPMovedPermanently(location=f"/product/{slug}")
+                raise web.HTTPMovedPermanently(location=f"{PUBLIC_SITE_ORIGIN}/product/{slug}")
 
         page = "index.html"
         if request.path in {"/profile", "/profile.html", "/admin", "/admin.html"}:
