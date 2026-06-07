@@ -70,11 +70,11 @@ const RagpackShop = (() => {
   };
 
   const getProductUrl = (product) => {
-    if (apiBaseUrl.origin === window.location.origin) {
-      return `/product/${encodeURIComponent(product.slug)}`;
+    if (window.location.protocol === "file:") {
+      return `/product.html?slug=${encodeURIComponent(product.slug)}`;
     }
 
-    return `/product.html?slug=${encodeURIComponent(product.slug)}`;
+    return `/product/${encodeURIComponent(product.slug)}`;
   };
 
   const getAssetUrl = (path) => {

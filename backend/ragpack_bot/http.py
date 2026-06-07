@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import html
 import re
 import secrets
 import time
@@ -48,6 +49,8 @@ SESSION_COOKIE = "ragpack_session"
 LOGIN_CODE_LIMIT = 6
 SLUG_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 UPLOAD_CONTENT_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/gif": ".gif"}
+PUBLIC_SITE_ORIGIN = "https://ragpack.ru"
+NOINDEX_HEADER = "noindex, nofollow, noarchive"
 
 
 def _static_root(config: Config) -> Path:
@@ -185,6 +188,78 @@ def _order_payload(order: Order) -> dict[str, object]:
 
 def _product_payload(product: Product) -> dict[str, object]:
     return product.to_dict()
+
+
+def _html(value: object) -> str:
+    return html.escape(str(value or ""), quote=True)
+
+
+def _product_title(product: Product) -> str:
+    return f"{product.name} / RĄG PACK//"
+
+
+def _product_description(product: Product) -> str:
+    return product.detail_description or product.description
+
+
+def _public_product_url(product: Product) -> str:
+    return f"{PUBLIC_SITE_ORIGIN}/product/{product.slug}"
+
+
+def _public_asset_url(path: str) -> str:
+    if path.startswith(("http://", "https://")):
+        return path
+    return f"{PUBLIC_SITE_ORIGIN}/{path.lstrip('/')}"
+
+
+def _display_product_name(product: Product) -> str:
+    return (product.display_name or product.name).replace("\n", " ")
+
+
+def _render_product_page(product: Product, static_root: Path) -> web.Response:
+    title = _product_title(product)
+    description = _product_description(product)
+    canonical_url = _public_product_url(product)
+    image_url = _public_asset_url(product.image)
+    template = (static_root / "product.html").read_text(encoding="utf-8")
+
+    template = re.sub(r"<title>.*?</title>", f"<title>{_html(title)}</title>", template, count=1, flags=re.S)
+    replacements = {
+        r'<meta name="description" content="[^"]*" />': f'<meta name="description" content="{_html(description)}" />',
+        r'<meta property="og:title" content="[^"]*" />': f'<meta property="og:title" content="{_html(title)}" />',
+        r'<meta property="og:description" content="[^"]*" />': f'<meta property="og:description" content="{_html(description)}" />',
+        r'<meta property="og:image" content="[^"]*" />': f'<meta property="og:image" content="{_html(image_url)}" />',
+        r'<meta property="og:url" content="[^"]*" />': f'<meta property="og:url" content="{_html(canonical_url)}" />',
+        r'<link rel="canonical" href="[^"]*" />': f'<link rel="canonical" href="{_html(canonical_url)}" />',
+    }
+    for pattern, replacement in replacements.items():
+        template = re.sub(pattern, replacement, template, count=1)
+
+    content = f"""
+    <section class="product-detail__state product-detail__state--seo">
+      <p class="section-label">{_html(product.tag or product.category)}</p>
+      <h1>{_html(_display_product_name(product))}</h1>
+      <p>{_html(description)}</p>
+      <a class="hero__button" href="https://ragpack.ru/#catalog">Вернуться в каталог</a>
+    </section>
+    """
+    template = re.sub(
+        r'<main class="product-detail" id="product-detail" aria-live="polite">.*?</main>',
+        f'<main class="product-detail" id="product-detail" aria-live="polite">{content}</main>',
+        template,
+        count=1,
+        flags=re.S,
+    )
+    return web.Response(text=template, content_type="text/html")
+
+
+def _sitemap_xml(products: list[Product]) -> str:
+    urls = [f"{PUBLIC_SITE_ORIGIN}/", *[_public_product_url(product) for product in products]]
+    items = "\n".join(
+        f"  <url><loc>{_html(url)}</loc><changefreq>weekly</changefreq></url>"
+        for url in urls
+    )
+    return f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n{items}\n</urlset>\n'
 
 
 def _login_url(config: Config) -> str:
@@ -349,6 +424,20 @@ def _rate_limit_middleware(config: Config) -> web.middleware:
     return middleware
 
 
+def _robots_header_middleware() -> web.middleware:
+    @web.middleware
+    async def middleware(
+        request: web.Request,
+        handler: Callable[[web.Request], Awaitable[web.StreamResponse]],
+    ) -> web.StreamResponse:
+        response = await handler(request)
+        if request.path.startswith("/api/") or request.path in {"/profile", "/profile.html", "/admin", "/admin.html"}:
+            response.headers["X-Robots-Tag"] = NOINDEX_HEADER
+        return response
+
+    return middleware
+
+
 async def _notification_worker(app: web.Application) -> None:
     config: Config = app["config"]
     bot: Bot = app["bot"]
@@ -381,7 +470,7 @@ async def _notification_context(app: web.Application):
 def create_app(config: Config, bot: Bot, catalog: Catalog | RuntimeCatalog, storage: OrderStorage) -> web.Application:
     app = web.Application(
         client_max_size=config.max_request_size,
-        middlewares=[_rate_limit_middleware(config)],
+        middlewares=[_rate_limit_middleware(config), _robots_header_middleware()],
     )
     app["config"] = config
     app["bot"] = bot
@@ -401,14 +490,43 @@ def create_app(config: Config, bot: Bot, catalog: Catalog | RuntimeCatalog, stor
     async def options(request: web.Request) -> web.Response:
         return web.Response(headers=_cors_headers(config, request))
 
+    async def robots_txt(request: web.Request) -> web.Response:
+        text = "\n".join(
+            [
+                "User-agent: *",
+                "Disallow: /profile",
+                "Disallow: /profile.html",
+                "Disallow: /admin",
+                "Disallow: /admin.html",
+                "Disallow: /api/",
+                f"Sitemap: {PUBLIC_SITE_ORIGIN}/sitemap.xml",
+                "",
+            ]
+        )
+        return web.Response(text=text, content_type="text/plain")
+
+    async def sitemap_xml(request: web.Request) -> web.Response:
+        products = storage.list_products(public_only=True)
+        return web.Response(text=_sitemap_xml(products), content_type="application/xml")
+
     async def static_page(request: web.Request) -> web.FileResponse:
         if request.host.split(":", 1)[0] == "api.ragpack.ru" and request.path in {"/", "/index.html"}:
             raise web.HTTPFound("https://ragpack.ru/")
 
+        if request.path == "/product.html":
+            slug = request.query.get("slug", "")
+            if slug and SLUG_PATTERN.fullmatch(slug):
+                raise web.HTTPMovedPermanently(location=f"/product/{slug}")
+
         page = "index.html"
         if request.path in {"/profile", "/profile.html", "/admin", "/admin.html"}:
             page = "profile.html"
-        elif request.path == "/product.html" or request.path.startswith("/product/"):
+        elif request.path.startswith("/product/"):
+            product = storage.get_product(request.match_info["slug"], public_only=True)
+            if product is None:
+                return web.Response(text="Product not found", status=404, headers={"X-Robots-Tag": NOINDEX_HEADER})
+            return _render_product_page(product, request.app["static_root"])
+        elif request.path == "/product.html":
             page = "product.html"
 
         return web.FileResponse(request.app["static_root"] / page)
@@ -769,6 +887,8 @@ def create_app(config: Config, bot: Bot, catalog: Catalog | RuntimeCatalog, stor
     for page_path in ("/", "/index.html", "/profile", "/profile.html", "/admin", "/admin.html", "/product.html"):
         app.router.add_get(page_path, static_page)
         app.router.add_post(page_path, static_page)
+    app.router.add_get("/robots.txt", robots_txt)
+    app.router.add_get("/sitemap.xml", sitemap_xml)
     app.router.add_static("/assets", app["static_root"] / "assets")
     app.router.add_static("/uploads", config.uploads_path)
     app.router.add_get(
